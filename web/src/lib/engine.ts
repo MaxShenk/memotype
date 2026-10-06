@@ -183,4 +183,45 @@ export class Engine {
     }
     return true;
   }
+
+  snapshot(): EngineSnapshot {
+    return {
+      pos: this.pos,
+      typed: this.typed,
+      typedScored: this.typedScored,
+      score: this.score,
+      mistakes: this.mistakes,
+      reveals: this.reveals,
+      correctKeystrokes: this.correctKeystrokes,
+      startedAt: this.startedAt,
+      endedAt: this.endedAt,
+      revealed: this.revealed,
+    };
+  }
+
+  restore(snapshot: EngineSnapshot): void {
+    this.pos = Math.min(Math.max(0, Math.floor(snapshot.pos)), this.text.length);
+    this.typed = snapshot.typed ?? "";
+    this.typedScored = Math.max(0, snapshot.typedScored ?? 0);
+    this.score = Math.max(0, snapshot.score ?? 0);
+    this.mistakes = Math.max(0, snapshot.mistakes ?? 0);
+    this.reveals = Math.max(0, snapshot.reveals ?? 0);
+    this.correctKeystrokes = Math.max(0, snapshot.correctKeystrokes ?? 0);
+    this.startedAt = snapshot.startedAt;
+    this.endedAt = snapshot.endedAt;
+    this.revealed = Boolean(snapshot.revealed);
+  }
 }
+
+export type EngineSnapshot = {
+  pos: number;
+  typed: string;
+  typedScored: number;
+  score: number;
+  mistakes: number;
+  reveals: number;
+  correctKeystrokes: number;
+  startedAt: number | null;
+  endedAt: number | null;
+  revealed: boolean;
+};

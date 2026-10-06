@@ -4,6 +4,20 @@ export const STANDARD = "standard";
 export const CHUNKING = "chunking";
 export const WEIGHTED = "weighted";
 
+export type PracticePrefs = {
+  mode: string;
+  chunkSize: number;
+  shuffle: boolean;
+  startWithTerm: boolean;
+};
+
+export const DEFAULT_PRACTICE: PracticePrefs = {
+  mode: CHUNKING,
+  chunkSize: 10,
+  shuffle: true,
+  startWithTerm: true,
+};
+
 export type Card = { term: string; definition: string; image: string; enabled?: boolean };
 
 export function cardEnabled(card: Card): boolean {
@@ -198,9 +212,17 @@ export class Session {
     readonly cards: Card[],
     readonly progress: Progress,
     readonly rng: Rng = defaultRng(),
+    practice?: PracticePrefs,
   ) {
     if (cards.length === 0) throw new Error("A session needs at least one card.");
     if (this.playable().length === 0) throw new Error("Turn at least one card on.");
+    if (practice) {
+      if (practice.mode === STANDARD || practice.mode === CHUNKING || practice.mode === WEIGHTED) this.mode = practice.mode;
+      const size = Math.floor(practice.chunkSize);
+      if (size >= 1) this.chunkSize = size;
+      this.shuffle = practice.shuffle;
+      this.startWithTerm = practice.startWithTerm;
+    }
     this.restart();
   }
 
@@ -344,6 +366,29 @@ export class Session {
     }
     this.pin(index);
     return "ok";
+  }
+
+  canStep(delta: number): boolean {
+    const enabled = this.playable();
+    const pos = enabled.indexOf(this.currentIndex());
+    const next = pos + delta;
+    return pos >= 0 && next >= 0 && next < enabled.length;
+  }
+
+  step(delta: number): string {
+    const enabled = this.playable();
+    const pos = enabled.indexOf(this.currentIndex());
+    if (pos < 0) return "missing";
+    const next = pos + delta;
+    if (next < 0 || next >= enabled.length) return "edge";
+    return this.jumpTo(enabled[next] + 1);
+  }
+
+  applyPractice(prefs: PracticePrefs): void {
+    this.setChunkSize(prefs.chunkSize);
+    this.setShuffle(prefs.shuffle);
+    this.setStartWithTerm(prefs.startWithTerm);
+    this.setMode(prefs.mode);
   }
 
   matches(typed: string): boolean {

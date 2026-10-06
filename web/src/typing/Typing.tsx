@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { deleteSource, ensureSample, listScores, listSources, recordScore, saveSource, type ScoreRow, type SourceRow } from "../lib/db";
 import { Engine, PRACTICE, RECALL } from "../lib/engine";
+import { clearTypingPlace, loadTypingPlace, saveTypingPlace } from "../lib/typingPlace";
 
-type Page = "library" | "edit" | "game" | "scores";
+type Page = "library" | "edit" | "game" | "scores" | "import";
+
+const SAMPLE_PASSAGE = `The quick brown fox jumps over the lazy dog.
+Pack my box with five dozen liquor jugs.`;
 
 function words(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
@@ -27,20 +31,35 @@ function shuffleSources(items: SourceRow[]): SourceRow[] {
   return next;
 }
 
+function downloadSample() {
+  const blob = new Blob([SAMPLE_PASSAGE], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "sample-passage.txt";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function Typing() {
   const [page, setPage] = useState<Page>("library");
+  const [backTo, setBackTo] = useState<Page>("library");
   const [sources, setSources] = useState<SourceRow[]>([]);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<SourceRow | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [shuffleOn, setShuffleOn] = useState(false);
   const [run, setRun] = useState(0);
+  const [fresh, setFresh] = useState(false);
   const [playing, setPlaying] = useState<{ sources: SourceRow[]; index: number; mode: string } | null>(null);
 
-  function start(mode: string, list: SourceRow[], shuffle: boolean) {
+  function begin(mode: string, list: SourceRow[], options: { shuffle?: boolean; fresh?: boolean } = {}) {
     if (list.length === 0) return;
+    if (options.fresh) list.forEach((source) => clearTypingPlace(source.id));
+    setFresh(Boolean(options.fresh));
     setRun((value) => value + 1);
-    setPlaying({ sources: shuffle ? shuffleSources(list) : list, index: 0, mode });
+    setPlaying({ sources: options.shuffle ? shuffleSources(list) : list, index: 0, mode });
+    setBackTo("library");
     setPage("game");
   }
 
@@ -53,13 +72,63 @@ export function Typing() {
     refresh().catch((reason: Error) => setError(reason.message));
   }, []);
 
+  function showScores() {
+    setBackTo(page === "game" ? "game" : "library");
+    setPage("scores");
+  }
+
+  const backLabel = backTo === "game" && playing ? playing.sources[playing.index]?.name ?? "Library" : "Library";
+
   return (
     <>
-      <nav className="subnav">
-        <button aria-pressed={page === "library"} onClick={() => setPage("library")}>Library</button>
-        <button aria-pressed={page === "edit"} onClick={() => { setEditing(null); setPage("edit"); }}>New source</button>
-        <button aria-pressed={page === "scores"} onClick={() => setPage("scores")}>High scores</button>
-      </nav>
+      <div className="crumb-bar">
+        <div className="crumb-trail">
+          {page === "library" ? (
+            <span className="crumb-current">Library</span>
+          ) : (
+            <button type="button" className="crumb-back" onClick={() => setPage(backTo)}>
+              <span aria-hidden="true">←</span> {backLabel}
+            </button>
+          )}
+          {page === "game" && playing && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">{playing.sources[playing.index]?.name}</span>
+            </>
+          )}
+          {page === "edit" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">{editing ? editing.name : "New source"}</span>
+            </>
+          )}
+          {page === "scores" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">High scores</span>
+            </>
+          )}
+          {page === "import" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">Import</span>
+            </>
+          )}
+        </div>
+        {page === "library" && (
+          <div className="crumb-pin">
+            <button type="button" className="icon-button" aria-label="New passage" onClick={() => { setEditing(null); setBackTo("library"); setPage("edit"); }}>
+              <PlusIcon />
+            </button>
+            <button type="button" className="icon-button" aria-label="High scores" onClick={showScores}>
+              <PodiumIcon />
+            </button>
+            <button type="button" className="icon-button" aria-label="Import a text file" onClick={() => { setBackTo("library"); setPage("import"); }}>
+              <UploadIcon />
+            </button>
+          </div>
+        )}
+      </div>
       {error && <p className="bad">{error}</p>}
       {page === "library" && (
         <Library
@@ -78,18 +147,26 @@ export function Typing() {
             setSelected((current) => current.size === sources.length ? new Set() : new Set(sources.map((source) => source.id)));
           }}
           onShuffle={() => setShuffleOn((value) => !value)}
-          onPlay={(source, mode) => start(mode, [source], false)}
-          onQueue={(mode) => start(mode, sources.filter((source) => selected.has(source.id)), shuffleOn)}
-          onEdit={(source) => { setEditing(source); setPage("edit"); }}
+          onOpen={(source) => begin(loadTypingPlace(source.id)?.mode ?? PRACTICE, [source])}
+          onRestart={(source) => begin(PRACTICE, [source], { fresh: true })}
+          onQueue={(mode) => begin(mode, sources.filter((source) => selected.has(source.id)), { shuffle: shuffleOn, fresh: true })}
+          onEdit={(source) => { setEditing(source); setBackTo("library"); setPage("edit"); }}
+          onNew={() => { setEditing(null); setBackTo("library"); setPage("edit"); }}
           onDelete={async (source) => {
             if (!window.confirm(`Delete ${source.name}?`)) return;
             await deleteSource(source.id);
+            clearTypingPlace(source.id);
             await refresh();
           }}
-          onImport={async (file) => {
+        />
+      )}
+      {page === "import" && (
+        <ImportText
+          onImported={async (file) => {
             const text = await file.text();
             await saveSource({ name: file.name.replace(/\.[^.]+$/, ""), body: text });
             await refresh();
+            setPage("library");
           }}
         />
       )}
@@ -107,18 +184,32 @@ export function Typing() {
       )}
       {page === "game" && playing && (
         <Game
-          key={run}
+          key={`${playing.sources[playing.index]?.id ?? "none"}-${run}`}
           source={playing.sources[playing.index]}
           mode={playing.mode}
+          fresh={fresh}
           place={playing.index + 1}
           total={playing.sources.length}
           nextName={playing.sources[(playing.index + 1) % playing.sources.length].name}
           onAdvance={() => {
+            setFresh(false);
             setRun((value) => value + 1);
             setPlaying((current) => current ? { ...current, index: (current.index + 1) % current.sources.length } : current);
           }}
+          onJump={(index) => {
+            setFresh(false);
+            setRun((value) => value + 1);
+            setPlaying((current) => current ? { ...current, index } : current);
+          }}
           onMode={(mode) => setPlaying((current) => current ? { ...current, mode } : current)}
-          onLeave={() => setPage("library")}
+          onScores={showScores}
+          onRestart={() => {
+            const source = playing.sources[playing.index];
+            if (!source) return;
+            clearTypingPlace(source.id);
+            setFresh(true);
+            setRun((value) => value + 1);
+          }}
         />
       )}
       {page === "scores" && <Scores sources={sources} />}
@@ -133,11 +224,12 @@ function Library({
   onToggle,
   onToggleAll,
   onShuffle,
-  onPlay,
+  onOpen,
+  onRestart,
   onQueue,
   onEdit,
   onDelete,
-  onImport,
+  onNew,
 }: {
   sources: SourceRow[];
   selected: Set<string>;
@@ -145,55 +237,172 @@ function Library({
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   onShuffle: () => void;
-  onPlay: (source: SourceRow, mode: string) => void;
+  onOpen: (source: SourceRow) => void;
+  onRestart: (source: SourceRow) => void;
   onQueue: (mode: string) => void;
   onEdit: (source: SourceRow) => void;
   onDelete: (source: SourceRow) => Promise<void>;
-  onImport: (file: File) => Promise<void>;
+  onNew: () => void;
 }) {
+  const [selecting, setSelecting] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const picked = sources.filter((source) => selected.has(source.id)).length;
+
+  useEffect(() => {
+    if (!menuFor) return;
+    function onPointer(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setMenuFor(null);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuFor(null);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuFor]);
+
+  function stopSelecting() {
+    setSelecting(false);
+    if (picked > 0) onToggleAll();
+  }
+
+  if (sources.length === 0) {
+    return (
+      <section className="card empty">
+        <strong>No passages yet</strong>
+        <p className="muted">Write one, or import a text file you want to learn by heart.</p>
+        <div className="actions">
+          <button type="button" className="primary" onClick={onNew}>New passage</button>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="list">
-      <label>
-        Import a text file
-        <input
-          type="file"
-          accept=".txt,.text,.md,text/plain"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) onImport(file).catch((reason: Error) => window.alert(reason.message));
-          }}
-        />
-      </label>
-      <div className="card">
-        <div className="actions">
-          <button type="button" onClick={onToggleAll} disabled={sources.length === 0}>
-            {picked === sources.length && sources.length > 0 ? "Clear" : "Select all"}
-          </button>
-          <button type="button" aria-pressed={shuffleOn} onClick={onShuffle}>{shuffleOn ? "Shuffle on" : "Shuffle off"}</button>
-        </div>
-        <div className="actions">
-          <button type="button" className="primary" disabled={picked === 0} onClick={() => onQueue(PRACTICE)}>Practice selected</button>
-          <button type="button" disabled={picked === 0} onClick={() => onQueue(RECALL)}>Recall selected</button>
-        </div>
-        <p className="muted">{picked} selected. After each source, Space starts the next. The queue repeats until you return to the library.</p>
+    <section className={selecting ? "library selecting" : "library"}>
+      <div className="library-bar">
+        <span className="muted">{sources.length} {sources.length === 1 ? "passage" : "passages"}</span>
+        {selecting ? (
+          <button type="button" className="link-button" onClick={stopSelecting}>Done</button>
+        ) : (
+          <button type="button" className="link-button" onClick={() => setSelecting(true)}>Select</button>
+        )}
       </div>
-      {sources.map((source) => (
-        <article className="card item" key={source.id}>
-          <label className="pick">
-            <input type="checkbox" checked={selected.has(source.id)} onChange={() => onToggle(source.id)} />
-            <span>{source.name}</span>
-          </label>
-          <span className="muted">{words(source.body)} words</span>
-          <div className="actions">
-            <button className="primary" onClick={() => onPlay(source, PRACTICE)}>Practice</button>
-            <button onClick={() => onPlay(source, RECALL)}>Recall</button>
-            <button onClick={() => onEdit(source)}>Edit</button>
-            <button className="bad" onClick={() => onDelete(source).catch((reason: Error) => window.alert(reason.message))}>Delete</button>
+      <div className="list">
+        {sources.map((source) => {
+          const place = loadTypingPlace(source.id);
+          const unfinished = Boolean(place && place.endedAt === null && place.pos > 0);
+          const percent = unfinished && place ? Math.min(100, Math.round((place.pos / Math.max(1, source.body.length)) * 100)) : 0;
+          const checked = selected.has(source.id);
+          return (
+            <article className={checked ? "card source picked" : "card source"} key={source.id}>
+              <button
+                type="button"
+                className="source-open"
+                aria-pressed={selecting ? checked : undefined}
+                onClick={() => (selecting ? onToggle(source.id) : onOpen(source))}
+              >
+                {selecting && <span className={checked ? "tick on" : "tick"} aria-hidden="true" />}
+                <span className="source-body">
+                  <strong>{source.name}</strong>
+                  <span className="source-preview">{source.body}</span>
+                  <span className="source-meta">
+                    <span>{words(source.body)} words</span>
+                    {unfinished && <span className="pill">Resume · {percent}%</span>}
+                  </span>
+                  {unfinished && (
+                    <span className="meter" aria-hidden="true">
+                      <span style={{ width: `${percent}%` }} />
+                    </span>
+                  )}
+                </span>
+              </button>
+              {!selecting && (
+                <div className="source-more" ref={menuFor === source.id ? menuRef : undefined}>
+                  <button
+                    type="button"
+                    className="icon-button ghost"
+                    aria-label={`More for ${source.name}`}
+                    aria-expanded={menuFor === source.id}
+                    onClick={() => setMenuFor((current) => (current === source.id ? null : source.id))}
+                  >
+                    <MoreIcon />
+                  </button>
+                  {menuFor === source.id && (
+                    <div className="source-menu">
+                      <button type="button" onClick={() => { setMenuFor(null); onEdit(source); }}>Edit</button>
+                      {unfinished && <button type="button" onClick={() => { setMenuFor(null); onRestart(source); }}>Start over</button>}
+                      <button
+                        type="button"
+                        className="bad"
+                        onClick={() => {
+                          setMenuFor(null);
+                          onDelete(source).catch((reason: Error) => window.alert(reason.message));
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      {selecting && (
+        <div className="queue-bar">
+          <div className="queue-row">
+            <span><strong>{picked}</strong> selected</span>
+            <button type="button" className="link-button" onClick={onToggleAll}>
+              {picked === sources.length ? "Clear" : "Select all"}
+            </button>
+            <button type="button" className="link-button" aria-pressed={shuffleOn} onClick={onShuffle}>
+              {shuffleOn ? "Shuffle on" : "Shuffle off"}
+            </button>
           </div>
-        </article>
-      ))}
+          <div className="queue-row">
+            <button type="button" className="primary" disabled={picked === 0} onClick={() => onQueue(PRACTICE)}>Practice</button>
+            <button type="button" disabled={picked === 0} onClick={() => onQueue(RECALL)}>Recall</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ImportText({ onImported }: { onImported: (file: File) => Promise<void> }) {
+  const [error, setError] = useState("");
+  return (
+    <section className="card import-screen">
+      <h2>Import a passage</h2>
+      <p>
+        Choose a plain text file. The file name, without the extension, becomes the source name.
+        Line breaks stay in the passage. Practice shows the text as you type. Recall hides it until you type each word.
+      </p>
+      <p className="muted">Sample format</p>
+      <pre className="snippet">{SAMPLE_PASSAGE}</pre>
+      <div className="actions">
+        <button type="button" onClick={downloadSample}>Download sample</button>
+        <label className="file-button primary">
+          Choose text file
+          <input
+            type="file"
+            accept=".txt,.text,.md,text/plain"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              onImported(file).catch((reason: Error) => setError(reason.message));
+            }}
+          />
+        </label>
+      </div>
+      {error && <p className="bad">{error}</p>}
     </section>
   );
 }
@@ -232,23 +441,36 @@ function Editor({ source, onSave, onCancel }: { source: SourceRow | null; onSave
 function Game({
   source,
   mode,
+  fresh,
   place,
   total,
   nextName,
   onAdvance,
+  onJump,
   onMode,
-  onLeave,
+  onScores,
+  onRestart,
 }: {
   source: SourceRow;
   mode: string;
+  fresh: boolean;
   place: number;
   total: number;
   nextName: string;
   onAdvance: () => void;
+  onJump: (index: number) => void;
   onMode: (mode: string) => void;
-  onLeave: () => void;
+  onScores: () => void;
+  onRestart: () => void;
 }) {
-  const [engine, setEngine] = useState(() => new Engine(source.body, mode));
+  const [engine, setEngine] = useState(() => {
+    const next = new Engine(source.body, mode);
+    if (!fresh) {
+      const saved = loadTypingPlace(source.id);
+      if (saved && saved.mode === mode && saved.endedAt === null) next.restore(saved);
+    }
+    return next;
+  });
   const [tracked, setTracked] = useState({ id: source.id, mode });
   if (source.id !== tracked.id) {
     setTracked({ id: source.id, mode });
@@ -259,10 +481,16 @@ function Game({
     if (untouched) setEngine(new Engine(source.body, mode));
   }
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const flashTimer = useRef(0);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const lined = useRef(false);
   const recorded = useRef<Engine | null>(null);
   const [tick, setTick] = useState(0);
   const [alert, setAlert] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pagerOpen, setPagerOpen] = useState(false);
+  const [jump, setJump] = useState(String(place));
   const [rank, setRank] = useState<{ engine: Engine; value: number | null } | null>(null);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const shownRank = rank?.engine === engine ? rank.value : undefined;
@@ -270,6 +498,38 @@ function Game({
   useEffect(() => {
     inputRef.current?.focus();
   }, [engine]);
+
+  useEffect(() => {
+    setJump(String(place));
+  }, [place]);
+
+  useEffect(() => {
+    if (engine.finished) {
+      clearTypingPlace(source.id);
+      return;
+    }
+    if (engine.startedAt === null && engine.pos === 0) return;
+    saveTypingPlace({ sourceId: source.id, mode: engine.mode, ...engine.snapshot() });
+  }, [engine, source.id, tick]);
+
+  useEffect(() => {
+    function onPointer(event: PointerEvent) {
+      const target = event.target as Node;
+      if (settingsOpen && settingsRef.current && !settingsRef.current.contains(target)) setSettingsOpen(false);
+      if (pagerOpen && sheetRef.current && !sheetRef.current.contains(target)) setPagerOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setSettingsOpen(false);
+      setPagerOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [settingsOpen, pagerOpen]);
 
   useEffect(() => {
     if (!engine.finished) return;
@@ -307,10 +567,13 @@ function Game({
   function bump(mistake: boolean) {
     setTick((value) => value + 1);
     setNow(Date.now() / 1000);
-    if (mistake) {
+    if (!mistake) return;
+    window.clearTimeout(flashTimer.current);
+    setAlert(false);
+    window.requestAnimationFrame(() => {
       setAlert(true);
-      window.setTimeout(() => setAlert(false), 180);
-    }
+      flashTimer.current = window.setTimeout(() => setAlert(false), 700);
+    });
   }
 
   function take(text: string) {
@@ -326,24 +589,81 @@ function Game({
   const elapsed = engine.elapsed(now);
   const wpm = elapsed >= 1 ? Math.round(engine.wpm(now)) : null;
   const accuracy = engine.accuracy();
+  const summary = [
+    `${engine.score} points`,
+    wpm === null ? "" : `${wpm} WPM`,
+    accuracy === null ? "" : `${Math.round(accuracy)}%`,
+    shownRank === undefined ? "Saving…" : shownRank ? `Rank ${shownRank}` : "Saved",
+  ].filter(Boolean).join(" · ");
+
+  function goToSource() {
+    const index = Number(jump) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= total || index === place - 1) return;
+    setPagerOpen(false);
+    onJump(index);
+  }
 
   return (
     <section className="stage">
-      <div className="stats">
+      <div className="stats quiz-bar" ref={settingsRef}>
         <span>{engine.mode === PRACTICE ? "Practice" : "Recall"}</span>
         <span>{place} of {total}</span>
         <span>{clock(elapsed)}</span>
         <span>{engine.score} pts</span>
         <span>{wpm === null ? "—" : `${wpm} WPM`}</span>
         <span>{accuracy === null ? "—" : `${Math.round(accuracy)}%`}</span>
+        <div className="icon-pair">
+          <button type="button" className="icon-button" aria-label="High scores" onClick={onScores}>
+            <PodiumIcon />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-expanded={settingsOpen}
+            aria-label={settingsOpen ? "Close game settings" : "Game settings"}
+            onClick={() => setSettingsOpen((open) => !open)}
+          >
+            <OptionsIcon />
+          </button>
+        </div>
+        {settingsOpen && (
+          <div className="quiz-menu">
+            <div className="mode-row">
+              <button type="button" aria-pressed={mode === PRACTICE} onClick={() => onMode(PRACTICE)}>Practice</button>
+              <button type="button" aria-pressed={mode === RECALL} onClick={() => onMode(RECALL)}>Recall</button>
+            </div>
+            {mode !== engine.mode && (
+              <p className="muted">
+                {total === 1
+                  ? `Restart to switch this source to ${mode === PRACTICE ? "Practice" : "Recall"}.`
+                  : `Next source: ${mode === PRACTICE ? "Practice" : "Recall"}. This one stays ${engine.mode === PRACTICE ? "Practice" : "Recall"}.`}
+              </p>
+            )}
+            {engine.mode === RECALL && !engine.finished && (
+              <button
+                type="button"
+                onClick={() => {
+                  engine.reveal(Date.now() / 1000);
+                  bump(false);
+                  setSettingsOpen(false);
+                  inputRef.current?.focus();
+                }}
+              >
+                Reveal word
+              </button>
+            )}
+            <button type="button" onClick={() => { setSettingsOpen(false); onRestart(); }}>Restart</button>
+          </div>
+        )}
       </div>
-      <article className="card prompt">
+      <article className={alert && !engine.finished ? "card prompt mistake" : "card prompt"}>
+        <span className="sr-only" aria-live="polite">{alert && !engine.finished ? "Incorrect" : ""}</span>
         <Passage engine={engine} alert={alert} />
       </article>
       <div className="card answer">
         <label>
           Type here
-            <textarea
+          <textarea
             ref={inputRef}
             className="type-line"
             rows={1}
@@ -377,44 +697,59 @@ function Game({
             }}
           />
         </label>
-        <div className="switch">
-          <button type="button" aria-pressed={mode === PRACTICE} onClick={() => onMode(PRACTICE)}>Practice</button>
-          <button type="button" aria-pressed={mode === RECALL} onClick={() => onMode(RECALL)}>Recall</button>
-        </div>
-        {mode !== engine.mode && (
-          <p className="muted">Next source: {mode === PRACTICE ? "Practice" : "Recall"}. This one stays {engine.mode === PRACTICE ? "Practice" : "Recall"}.</p>
-        )}
-        <div className="actions">
-          {engine.mode === RECALL && !engine.finished && (
-            <button
-              type="button"
-              onClick={() => {
-                engine.reveal(Date.now() / 1000);
-                bump(false);
-                inputRef.current?.focus();
-              }}
-            >
-              Reveal word
-            </button>
-          )}
-          {!engine.finished && <button type="button" onClick={onLeave}>Library</button>}
-        </div>
         {engine.finished && (
-          <div className="banner ok">
-            <p className="good">Finished {source.name}.</p>
-            <p>
-              {engine.score} points
-              {wpm === null ? "" : ` · ${wpm} WPM`}
-              {accuracy === null ? "" : ` · ${Math.round(accuracy)}%`}
-              {shownRank === undefined ? " · Saving…" : shownRank ? ` · Rank ${shownRank}` : " · Saved"}
-            </p>
-            <p className="muted">{total === 1 ? "Space to start again." : `Space for ${nextName}.`}</p>
+          <>
+            <p className="good">Finished. {summary}. {total === 1 ? "Space to start again." : `Space for ${nextName}.`}</p>
             <div className="actions">
               <button type="button" className="primary" onClick={onAdvance}>Next</button>
-              <button type="button" onClick={onLeave}>Library</button>
+            </div>
+          </>
+        )}
+      </div>
+      {pagerOpen && <button type="button" className="sheet-backdrop" aria-label="Close source jump" onClick={() => setPagerOpen(false)} />}
+      <div className="sheet-dock" ref={sheetRef}>
+        {pagerOpen && (
+          <div className="quiz-sheet pager-sheet" id="source-jump">
+            <div className="pager">
+              <button type="button" className="icon-button" aria-label="Previous source" disabled={place <= 1} onClick={() => onJump(place - 2)}>
+                <ArrowIcon direction="left" />
+              </button>
+              <div className="pager-center">
+                <label>
+                  Go to source
+                  <input
+                    type="number"
+                    min={1}
+                    max={total}
+                    inputMode="numeric"
+                    value={jump}
+                    onChange={(event) => setJump(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        goToSource();
+                      }
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={goToSource}>Go</button>
+              </div>
+              <button type="button" className="icon-button" aria-label="Next source" disabled={place >= total} onClick={() => onJump(place)}>
+                <ArrowIcon direction="right" />
+              </button>
             </div>
           </div>
         )}
+        <button
+          type="button"
+          className="sheet-handle"
+          aria-expanded={pagerOpen}
+          aria-controls="source-jump"
+          aria-label={pagerOpen ? "Close source jump" : "Go to source"}
+          onClick={() => setPagerOpen((open) => !open)}
+        >
+          <span className={pagerOpen ? "sheet-chevron down" : "sheet-chevron"} />
+        </button>
       </div>
     </section>
   );
@@ -426,7 +761,6 @@ function Passage({ engine, alert }: { engine: Engine; alert: boolean }) {
     return (
       <div className="prompt-body">
         {engine.revealed && <p className="muted">Revealed: {engine.currentWord}</p>}
-        {alert && <p className="bad">Incorrect</p>}
         <p className="passage">
           {shown}
           {!engine.finished && <span className={alert ? "caret bad" : "caret"} />}
@@ -438,13 +772,80 @@ function Passage({ engine, alert }: { engine: Engine; alert: boolean }) {
     );
   }
   const pos = engine.finished ? engine.text.length : engine.pos;
+  const next = engine.text[pos] ?? "";
+  const marked = next === " " ? "\u00a0" : next;
   return (
     <p className="passage">
       <span>{engine.text.slice(0, pos)}</span>
-      {!engine.finished && <span className={alert ? "caret bad" : "caret"} />}
-      {!engine.finished && alert && <span className="bad">{engine.text[pos]}</span>}
-      <span className="pending">{engine.text.slice(alert && !engine.finished ? pos + 1 : pos)}</span>
+      {!engine.finished && next && (
+        <span className={alert ? "target bad" : next === "\n" ? "target target-break" : "target"}>{marked}</span>
+      )}
+      <span className="pending">{engine.text.slice(pos + (engine.finished || !next ? 0 : 1))}</span>
     </p>
+  );
+}
+
+function ArrowIcon({ direction }: { direction: "left" | "right" }) {
+  const path = direction === "left" ? "M14.5 6 8.5 12l6 6" : "M9.5 6l6 6-6 6";
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  );
+}
+
+function OptionsIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+      <circle cx="9" cy="7" r="2.2" />
+      <circle cx="15" cy="12" r="2.2" />
+      <circle cx="8" cy="17" r="2.2" />
+    </svg>
+  );
+}
+
+function PodiumIcon() {
+  return (
+    <svg className="glyph podium" viewBox="0 0 36 24" aria-hidden="true">
+      <rect x="0" y="10" width="11" height="14" rx="2" />
+      <rect x="12.5" y="2" width="11" height="22" rx="2" />
+      <rect x="25" y="14" width="11" height="10" rx="2" />
+      <text x="5.5" y="20" textAnchor="middle">2</text>
+      <text x="18" y="15" textAnchor="middle">1</text>
+      <text x="30.5" y="21.5" textAnchor="middle">3</text>
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="5.5" cy="12" r="1.2" />
+      <circle cx="12" cy="12" r="1.2" />
+      <circle cx="18.5" cy="12" r="1.2" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 16V4" />
+      <path d="M7 8.5 12 3.5 17 8.5" />
+      <path d="M4 15.5V20h16v-4.5" />
+    </svg>
   );
 }
 

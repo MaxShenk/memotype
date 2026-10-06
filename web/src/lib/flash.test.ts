@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHUNKING,
   type Card,
+  DEFAULT_PRACTICE,
   STANDARD,
   DeckParseError,
   MemoryProgress,
@@ -183,5 +184,27 @@ describe("session", () => {
     expect(rows[0].term).toBe("Spain");
     expect(rows[1].term).toBe("France");
     expect(rows).toHaveLength(2);
+  });
+
+  it("pages between enabled cards and can start from saved settings", () => {
+    const deck: Card[] = [
+      { term: "A", definition: "1", image: "" },
+      { term: "B", definition: "2", image: "", enabled: false },
+      { term: "C", definition: "3", image: "" },
+    ];
+    let shuffled = 0;
+    const rng: Rng = { shuffle() { shuffled += 1; }, choices: (population) => population[0] };
+    const session = new Session("deck", deck, new MemoryProgress("deck"), rng, DEFAULT_PRACTICE);
+    expect(session.mode).toBe(CHUNKING);
+    expect(session.shuffle).toBe(true);
+    expect(shuffled).toBe(1);
+    expect(session.step(-1)).toBe("edge");
+    expect(session.step(1)).toBe("ok");
+    expect(session.currentIndex()).toBe(2);
+    expect(session.step(1)).toBe("edge");
+    session.check("nope", 1);
+    expect(session.step(-1)).toBe("ok");
+    expect(session.checked).toBe(false);
+    expect(session.currentIndex()).toBe(0);
   });
 });

@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Flash } from "./flash/Flash";
 import { supabase } from "./lib/supabase";
 import { Typing } from "./typing/Typing";
@@ -24,7 +24,13 @@ export function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (!ready) return <main className="app"><p className="muted">Loading…</p></main>;
+  if (!ready) {
+    return (
+      <main className="app">
+        <p className="loading muted"><Logo /> Loading…</p>
+      </main>
+    );
+  }
   if (!supabase) return <Shell local />;
   if (!email) return <AuthScreen />;
   return <Shell email={email} />;
@@ -56,8 +62,13 @@ function AuthScreen() {
 
   return (
     <main className="app">
-      <h1>MemoType</h1>
-      <p className="muted">Typing practice and flashcards for your phone.</p>
+      <div className="brand auth-brand">
+        <Logo />
+        <div>
+          <h1>MemoType</h1>
+          <p className="muted">Typing practice and flashcards for your phone.</p>
+        </div>
+      </div>
       <form className="card auth" onSubmit={submit}>
         <label>
           Email
@@ -78,19 +89,65 @@ function AuthScreen() {
   );
 }
 
+function Logo() {
+  return <img className="logo" src="/favicon.svg" alt="" />;
+}
+
 function Shell({ email, local = false }: { email?: string; local?: boolean }) {
   const [tool, setTool] = useState<Tool>("typing");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const barRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    function onPointer(event: PointerEvent) {
+      if (!barRef.current?.contains(event.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [menuOpen]);
+
+  function choose(next: Tool) {
+    setTool(next);
+    setMenuOpen(false);
+  }
 
   return (
     <main className="app">
-      <header className="top">
-        <h1>MemoType</h1>
-        {local ? <span className="muted">Saved in this browser</span> : <button onClick={() => supabase?.auth.signOut()}>{email}</button>}
+      <header className="top" ref={barRef}>
+        <div className="brand">
+          <Logo />
+          <div>
+            <h1>MemoType</h1>
+            <p className="current">{tool === "typing" ? "Typing" : "Flashcards"}</p>
+          </div>
+        </div>
+        <button
+          className="icon-button"
+          aria-expanded={menuOpen}
+          aria-controls="app-menu"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span className="bars" />
+        </button>
+        {menuOpen && (
+          <nav id="app-menu" className="menu">
+            <button aria-pressed={tool === "typing"} onClick={() => choose("typing")}>Typing</button>
+            <button aria-pressed={tool === "flash"} onClick={() => choose("flash")}>Flashcards</button>
+            <div className="menu-account">
+              {local ? <span className="muted">Saved in this browser</span> : <button onClick={() => supabase?.auth.signOut()}>Sign out · {email}</button>}
+            </div>
+          </nav>
+        )}
       </header>
-      <nav className="switch">
-        <button aria-pressed={tool === "typing"} onClick={() => setTool("typing")}>Typing</button>
-        <button aria-pressed={tool === "flash"} onClick={() => setTool("flash")}>Flashcards</button>
-      </nav>
       {tool === "typing" ? <Typing /> : <Flash />}
     </main>
   );

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  BUILTIN_DECK_ID,
   deleteDeck,
   importDeck,
   listDecks,
@@ -16,6 +15,7 @@ import {
 import {
   CHUNKING,
   type Card,
+  type PracticePrefs,
   cardEnabled,
   MemoryProgress,
   STANDARD,
@@ -24,16 +24,51 @@ import {
   cardKey,
   hardestRows,
 } from "../lib/flash";
+import {
+  clearDeckPractice,
+  clearPlace,
+  loadGlobalPractice,
+  loadPlace,
+  loadPractice,
+  saveDeckPractice,
+  saveGlobalPractice,
+  savePlace,
+} from "../lib/prefs";
 
-type Page = "quiz" | "decks" | "progress";
+type Page = "quiz" | "decks" | "progress" | "import";
+
+const SAMPLE_DECK = `[
+  {
+    "term": "Feature",
+    "definition": "An input the model uses to make a prediction"
+  },
+  {
+    "term": "Label",
+    "definition": "The outcome a supervised model is trained to predict",
+    "image": "https://example.com/label.png"
+  }
+]
+`;
+
+function downloadSample() {
+  const blob = new Blob([SAMPLE_DECK], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "sample-deck.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 export function Flash() {
   const [page, setPage] = useState<Page>("decks");
+  const [backTo, setBackTo] = useState<Page>("decks");
   const [decks, setDecks] = useState<DeckRow[]>([]);
   const [deck, setDeck] = useState<DeckRow | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [progress, setProgress] = useState<MemoryProgress | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
+  const [launch, setLaunch] = useState<"resume" | "restart">("resume");
   const [error, setError] = useState("");
 
   async function refresh() {
@@ -44,7 +79,7 @@ export function Flash() {
     refresh().catch((reason: Error) => setError(reason.message));
   }, []);
 
-  async function open(row: DeckRow) {
+  async function open(row: DeckRow, how: "resume" | "restart" = "resume") {
     const loaded = await loadCards(row.id);
     if (loaded.length === 0) {
       setError("That deck has no cards. Run web/supabase/schema.sql if this is Country capitals.");
@@ -54,26 +89,79 @@ export function Flash() {
     const memory = new MemoryProgress(row.id, stats, (key, next) => {
       saveStat(row.id, key, next).catch((reason: Error) => setError(reason.message));
     });
+    if (how === "restart") clearPlace(row.id);
     setDeck(row);
     setCards(loaded);
     setProgress(memory);
+    setLaunch(how);
     setSessionKey((value) => value + 1);
     setError("");
+    setBackTo("decks");
     setPage("quiz");
   }
 
+  function showProgress() {
+    setBackTo(page === "quiz" ? "quiz" : "decks");
+    setPage("progress");
+  }
+
+  function goBack() {
+    if (page === "progress") {
+      setPage(backTo);
+      return;
+    }
+    setBackTo("decks");
+    setPage("decks");
+  }
+
+  const backLabel = page === "progress" && backTo === "quiz" && deck ? deck.name : "Decks";
+
   return (
     <>
-      <nav className="subnav">
-        <button aria-pressed={page === "quiz"} onClick={() => setPage("quiz")}>Quiz</button>
-        <button aria-pressed={page === "decks"} onClick={() => setPage("decks")}>Decks</button>
-        <button aria-pressed={page === "progress"} onClick={() => setPage("progress")}>Progress</button>
-      </nav>
+      <div className="crumb-bar">
+        <div className="crumb-trail">
+          {page === "decks" ? (
+            <span className="crumb-current">Decks</span>
+          ) : (
+            <button type="button" className="crumb-back" onClick={goBack}>
+              <span aria-hidden="true">←</span> {backLabel}
+            </button>
+          )}
+          {page === "quiz" && deck && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">{deck.name}</span>
+            </>
+          )}
+          {page === "progress" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">Progress</span>
+            </>
+          )}
+          {page === "import" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">Import</span>
+            </>
+          )}
+        </div>
+        {(page === "decks") && (
+          <div className="crumb-pin">
+            <button type="button" className="icon-button" aria-label="Progress" onClick={showProgress}>
+              <PodiumIcon />
+            </button>
+            <button type="button" className="icon-button" aria-label="Import a JSON deck" onClick={() => { setBackTo("decks"); setPage("import"); }}>
+              <UploadIcon />
+            </button>
+          </div>
+        )}
+      </div>
       {error && <p className="bad">{error}</p>}
       {page === "decks" && (
         <Decks
           decks={decks}
-          onOpen={(row) => open(row).catch((reason: Error) => setError(reason.message))}
+          onOpen={(row, how) => open(row, how).catch((reason: Error) => setError(reason.message))}
           onCardsChanged={async (id) => {
             await refresh();
             if (deck?.id !== id) return;
@@ -88,14 +176,10 @@ export function Flash() {
             }));
             setSessionKey((value) => value + 1);
           }}
-          onImported={async (id) => {
-            await refresh();
-            const next = (await listDecks()).find((row) => row.id === id);
-            if (next) await open(next);
-          }}
           onDelete={async (row) => {
             if (!window.confirm(`Delete ${row.name}?`)) return;
             await deleteDeck(row.id);
+            clearPlace(row.id);
             if (deck?.id === row.id) {
               setDeck(null);
               setCards([]);
@@ -112,17 +196,19 @@ export function Flash() {
               setSessionKey((value) => value + 1);
             }
           }}
-          onCapitals={() => {
-            const row = decks.find((item) => item.id === BUILTIN_DECK_ID);
-            if (!row) {
-              setError("Country capitals is not in the database yet. Run web/supabase/schema.sql.");
-              return;
-            }
-            open(row).catch((reason: Error) => setError(reason.message));
+        />
+      )}
+      {page === "import" && (
+        <ImportDeck
+          decks={decks}
+          onImported={async (id) => {
+            await refresh();
+            const next = (await listDecks()).find((row) => row.id === id);
+            if (next) await open(next);
           }}
         />
       )}
-      {page === "quiz" && <Quiz key={`${deck?.id ?? "none"}-${sessionKey}`} deck={deck} cards={cards} progress={progress} />}
+      {page === "quiz" && <Quiz key={`${deck?.id ?? "none"}-${sessionKey}`} deck={deck} cards={cards} progress={progress} launch={launch} onProgress={showProgress} />}
       {page === "progress" && (
         <Progress
           deck={deck}
@@ -141,22 +227,116 @@ export function Flash() {
   );
 }
 
+function ArrowIcon({ direction }: { direction: "left" | "right" }) {
+  const path = direction === "left" ? "M14.5 6 8.5 12l6 6" : "M9.5 6l6 6-6 6";
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  );
+}
+
+function OptionsIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+      <circle cx="9" cy="7" r="2.2" />
+      <circle cx="15" cy="12" r="2.2" />
+      <circle cx="8" cy="17" r="2.2" />
+    </svg>
+  );
+}
+
+function PodiumIcon() {
+  return (
+    <svg className="glyph podium" viewBox="0 0 36 24" aria-hidden="true">
+      <rect x="0" y="10" width="11" height="14" rx="2" />
+      <rect x="12.5" y="2" width="11" height="22" rx="2" />
+      <rect x="25" y="14" width="11" height="10" rx="2" />
+      <text x="5.5" y="20" textAnchor="middle">2</text>
+      <text x="18" y="15" textAnchor="middle">1</text>
+      <text x="30.5" y="21.5" textAnchor="middle">3</text>
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 16V4" />
+      <path d="M7 8.5 12 3.5 17 8.5" />
+      <path d="M4 15.5V20h16v-4.5" />
+    </svg>
+  );
+}
+
+function ImportDeck({
+  decks,
+  onImported,
+}: {
+  decks: DeckRow[];
+  onImported: (id: string) => Promise<void>;
+}) {
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  return (
+    <section className="card import-screen">
+      <h2>Import a deck</h2>
+      <p>
+        Choose a JSON file. The file name, without .json, becomes the deck name. The file itself is an array of cards.
+        Every card needs a definition, and either a term or an image. An image is an https URL or a data:image URI.
+        enabled is optional and defaults to on. Importing a file whose name matches a deck you already have replaces that deck’s cards.
+      </p>
+      <p className="muted">Sample format</p>
+      <pre className="snippet">{SAMPLE_DECK}</pre>
+      <div className="actions">
+        <button type="button" onClick={downloadSample}>Download sample</button>
+        <label className="file-button primary">
+          Choose JSON file
+          <input
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file) return;
+              const clean = sanitizeName(file.name.replace(/\.json$/i, ""));
+              const match = decks.find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
+              if (match && !window.confirm(`Replace the cards in ${match.name}?`)) return;
+              file.text().then(async (text) => {
+                const result = await importDeck(clean, JSON.parse(text) as unknown);
+                setError("");
+                setMessage(result.updated ? `Updated ${clean}` : `Loaded ${clean}`);
+                await onImported(result.id);
+              }).catch((reason: Error) => {
+                setMessage("");
+                setError(reason.message);
+              });
+            }}
+          />
+        </label>
+      </div>
+      {message && <p className="good">{message}</p>}
+      {error && <p className="bad">{error}</p>}
+    </section>
+  );
+}
+
 function Decks({
   decks,
   onOpen,
-  onImported,
   onCardsChanged,
   onDelete,
   onReset,
-  onCapitals,
 }: {
   decks: DeckRow[];
-  onOpen: (row: DeckRow) => void;
-  onImported: (id: string) => Promise<void>;
+  onOpen: (row: DeckRow, how?: "resume" | "restart") => void;
   onCardsChanged: (id: string) => Promise<void>;
   onDelete: (row: DeckRow) => Promise<void>;
   onReset: (row: DeckRow) => Promise<void>;
-  onCapitals: () => void;
 }) {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<DeckRow | null>(null);
@@ -198,36 +378,22 @@ function Decks({
 
   return (
     <section className="list">
-      <div className="actions">
-        <button className="primary" onClick={onCapitals}>Country capitals</button>
-      </div>
-      <label>
-        Import a JSON deck
-        <input
-          type="file"
-          accept="application/json,.json"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (!file) return;
-            const clean = sanitizeName(file.name.replace(/\.json$/i, ""));
-            const match = decks.find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
-            if (match && !window.confirm(`Replace the cards in ${match.name}?`)) return;
-            readJson(file).then(async (raw) => {
-              const result = await importDeck(clean, raw);
-              setMessage(result.updated ? `Updated ${clean}` : `Loaded ${clean}`);
-              await onImported(result.id);
-            }).catch((reason: Error) => setMessage(reason.message));
-          }}
-        />
-      </label>
       {message && <p className="muted">{message}</p>}
-      {decks.map((row) => (
+      {decks.length === 0 && <p className="muted">No decks yet. Use the upload button to import a JSON file.</p>}
+      {decks.map((row) => {
+        const place = loadPlace(row.id);
+        return (
         <article className="card item" key={row.id}>
-          <strong>{row.name}</strong>
-          <span className="faint">{row.builtin_key ? "Built-in" : "Your deck"}</span>
+          <button type="button" className="deck-open" onClick={() => onOpen(row, "resume")}>
+            <span>
+              <strong>{row.name}</strong>
+              <span className="faint">{row.builtin_key ? "Built-in" : "Your deck"}{place ? ` · Card ${place}` : ""}</span>
+            </span>
+            <span className="deck-chevron" aria-hidden="true">›</span>
+          </button>
           <div className="actions">
-            <button className="primary" onClick={() => onOpen(row)}>Quiz</button>
+            {place && <button className="primary" onClick={() => onOpen(row, "resume")}>Resume</button>}
+            {place && <button onClick={() => onOpen(row, "restart")}>Restart</button>}
             {!row.builtin_key && <button onClick={() => startEdit(row)}>Edit</button>}
             {!row.builtin_key && (
               <label className="file-button">
@@ -253,7 +419,8 @@ function Decks({
             {!row.builtin_key && <button className="bad" onClick={() => onDelete(row).catch((reason: Error) => setMessage(reason.message))}>Delete</button>}
           </div>
         </article>
-      ))}
+        );
+      })}
     </section>
   );
 }
@@ -322,20 +489,31 @@ function DeckEditor({
   );
 }
 
-function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; progress: MemoryProgress | null }) {
+function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | null; cards: Card[]; progress: MemoryProgress | null; launch: "resume" | "restart"; onProgress: () => void }) {
   const sessionRef = useRef<Session | null>(null);
   const timer = useRef<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   const [tick, setTick] = useState(0);
   const [answer, setAnswer] = useState("");
-  const [sticky, setSticky] = useState(false);
   const [notice, setNotice] = useState("");
   const [jump, setJump] = useState("");
+  const [custom, setCustom] = useState(false);
+  const [pagerOpen, setPagerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const focusAnswer = useRef(false);
 
   const activeCount = cards.filter((card) => cardEnabled(card)).length;
   if (deck && progress && cards.length && activeCount > 0 && sessionRef.current?.deckId !== deck.id) {
-    sessionRef.current = new Session(deck.id, cards, progress);
+    const loaded = loadPractice(deck.id);
+    const next = new Session(deck.id, cards, progress, undefined, loaded.prefs);
+    if (launch === "resume") {
+      const place = loadPlace(deck.id);
+      if (place) next.jumpTo(place);
+    }
+    sessionRef.current = next;
+    if (custom !== loaded.custom) setCustom(loaded.custom);
   }
   const session = sessionRef.current;
 
@@ -344,12 +522,37 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
   }, []);
 
   useEffect(() => {
+    if (!deck || !session) return;
+    savePlace(deck.id, session.currentIndex() + 1);
+  }, [deck, session, tick]);
+
+  useEffect(() => {
     if (!focusAnswer.current) return;
     const field = inputRef.current;
     if (!field || field.disabled || field.readOnly) return;
     focusAnswer.current = false;
     field.focus();
   }, [tick]);
+
+  useEffect(() => {
+    if (!pagerOpen && !settingsOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setPagerOpen(false);
+      setSettingsOpen(false);
+    }
+    function onPointer(event: PointerEvent) {
+      const target = event.target as Node;
+      if (pagerOpen && !menuRef.current?.contains(target)) setPagerOpen(false);
+      if (settingsOpen && !settingsRef.current?.contains(target)) setSettingsOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [pagerOpen, settingsOpen]);
 
   function bump() {
     setTick((value) => value + 1);
@@ -374,7 +577,6 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
     if (result === "ok") {
       setNotice("");
       setAnswer("");
-      setSticky(false);
       focusAnswer.current = true;
       inputRef.current?.focus();
       bump();
@@ -385,116 +587,167 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
     bump();
   }
 
+  function prefsFrom(): PracticePrefs {
+    return {
+      mode: session?.mode ?? STANDARD,
+      chunkSize: session?.chunkSize ?? 10,
+      shuffle: session?.shuffle ?? false,
+      startWithTerm: session?.startWithTerm ?? true,
+    };
+  }
+
+  function remember() {
+    if (!deck || !session) return;
+    const prefs = prefsFrom();
+    if (custom) saveDeckPractice(deck.id, prefs);
+    else saveGlobalPractice(prefs);
+  }
+
+  function tune(change: () => void) {
+    if (!session) return;
+    cancelAdvance();
+    change();
+    remember();
+    setAnswer("");
+    setNotice("");
+    bump();
+  }
+
+  function followGlobal() {
+    if (!deck || !session) return;
+    clearDeckPractice(deck.id);
+    cancelAdvance();
+    session.applyPractice(loadGlobalPractice());
+    setCustom(false);
+    setAnswer("");
+    setNotice("");
+    bump();
+  }
+
+  function followDeck() {
+    if (!deck || !session) return;
+    saveDeckPractice(deck.id, prefsFrom());
+    setCustom(true);
+  }
+
+  function restartRun() {
+    if (!deck || !session) return;
+    cancelAdvance();
+    clearPlace(deck.id);
+    session.restart();
+    setAnswer("");
+    setNotice("");
+    setJump("");
+    bump();
+  }
+
+  function pageBy(delta: number) {
+    if (!session) return;
+    cancelAdvance();
+    if (session.step(delta) !== "ok") return;
+    setNotice("");
+    setAnswer("");
+    setJump("");
+    focusAnswer.current = true;
+    bump();
+  }
+
   function check() {
     if (!session || session.checked) return;
     setNotice("");
-    setSticky(false);
     const outcome = session.check(answer, Date.now());
     if (outcome === "correct") {
       cancelAdvance();
       timer.current = window.setTimeout(() => {
         session.advance("");
         setAnswer("");
-        setSticky(true);
         focusAnswer.current = true;
         bump();
-      }, 350);
-    } else {
-      cancelAdvance();
-      setAnswer("");
+      }, 650);
     }
     bump();
   }
 
-  function next() {
-    if (!session || !session.checked) return;
-    if (session.correctionRequired && !session.matches(answer)) {
-      setNotice("Type the expected answer to continue.");
-      bump();
-      return;
-    }
+  function continueAfterMiss() {
+    if (!session || !session.checked || session.wasCorrect) return;
     cancelAdvance();
-    session.advance(answer);
-    setSticky(false);
+    session.advance(session.expectedText());
     setNotice("");
     setAnswer("");
     focusAnswer.current = true;
     bump();
   }
 
-  const finish = session.mode === STANDARD && session.cursor >= session.order.length - 1;
-  const canNext = session.checked && (!session.correctionRequired || session.matches(answer));
   const reveal = !session.showingTerm() && session.currentCard().image ? session.currentCard().image : "";
   void tick;
 
   return (
     <section className="stage">
-      <div className="stats">
+      <div className="stats quiz-bar" ref={settingsRef}>
         <span>{deck.name}</span>
         <span>{session.positionLabel()}</span>
         <span>Mistakes {session.sessionMistakes}</span>
-      </div>
-      <div className="row">
-        {([
-          [STANDARD, "Standard"],
-          [CHUNKING, "Chunking"],
-          [WEIGHTED, "Weighted"],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            aria-pressed={session.mode === value}
-            onClick={() => {
-              cancelAdvance();
-              session.setMode(value);
-              bump();
-            }}
-          >
-            {label}
+        <div className="icon-pair">
+          <button type="button" className="icon-button" aria-label="Progress" onClick={onProgress}>
+            <PodiumIcon />
           </button>
-        ))}
-        <label>
-          Chunk
-          <input
-            type="number"
-            min={1}
-            value={session.chunkSize}
-            disabled={session.mode !== CHUNKING}
-            onChange={(event) => {
-              const size = Number(event.target.value);
-              if (!Number.isFinite(size) || size < 1) return;
-              cancelAdvance();
-              session.setChunkSize(size);
-              bump();
-            }}
-          />
-        </label>
-        <button onClick={() => { cancelAdvance(); session.setStartWithTerm(!session.startWithTerm); setAnswer(""); setSticky(false); setNotice(""); bump(); }}>
-          {session.startWithTerm ? "Term → definition" : "Definition → term"}
-        </button>
-        <button onClick={() => { cancelAdvance(); session.setShuffle(!session.shuffle); bump(); }}>
-          {session.shuffle ? "Shuffle on" : "Shuffle off"}
-        </button>
-        <button onClick={() => { cancelAdvance(); session.restart(); setAnswer(""); setSticky(false); bump(); }}>Restart</button>
-        <label className="jump">
-          Go to card
-          <input
-            type="number"
-            min={1}
-            max={session.cards.length}
-            inputMode="numeric"
-            value={jump}
-            onChange={(event) => setJump(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                goToCard();
-              }
-            }}
-          />
-        </label>
-        <button type="button" onClick={goToCard}>Go</button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-expanded={settingsOpen}
+            aria-label={settingsOpen ? "Close practice options" : "Practice options"}
+            onClick={() => setSettingsOpen((open) => !open)}
+          >
+            <OptionsIcon />
+          </button>
+        </div>
+        {settingsOpen && (
+          <div className="quiz-menu">
+            <div className="mode-row">
+              <button type="button" aria-pressed={!custom} onClick={followGlobal}>Default</button>
+              <button type="button" aria-pressed={custom} onClick={followDeck}>This deck</button>
+            </div>
+            <p className="muted">{custom ? "Only this deck uses these settings." : "Decks use these settings unless one has its own."}</p>
+            <div className="mode-row">
+              {([
+                [STANDARD, "Standard"],
+                [CHUNKING, "Chunking"],
+                [WEIGHTED, "Weighted"],
+              ] as const).map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={session.mode === value} onClick={() => tune(() => session.setMode(value))}>{label}</button>
+              ))}
+            </div>
+            <label>
+              Chunk
+              <input
+                type="number"
+                min={1}
+                value={session.chunkSize}
+                onChange={(event) => {
+                  const size = Number(event.target.value);
+                  if (!Number.isFinite(size) || size < 1) return;
+                  tune(() => session.setChunkSize(size));
+                }}
+              />
+            </label>
+            <button type="button" onClick={() => tune(() => session.setStartWithTerm(!session.startWithTerm))}>
+              {session.startWithTerm ? "Term → definition" : "Definition → term"}
+            </button>
+            <button type="button" aria-pressed={session.shuffle} onClick={() => tune(() => session.setShuffle(!session.shuffle))}>
+              {session.shuffle ? "Shuffle on" : "Shuffle off"}
+            </button>
+            <button type="button" onClick={restartRun}>Restart</button>
+          </div>
+        )}
       </div>
       <article className="card prompt">
+        {session.checked && (
+          <div className={session.wasCorrect ? "verdict ok" : "verdict miss"} aria-live="polite">
+            <span className="verdict-mark" aria-hidden="true">{session.wasCorrect ? "✓" : "✕"}</span>
+            <span>{session.wasCorrect ? "Correct" : session.expectedText()}</span>
+            {!session.wasCorrect && reveal && <img src={reveal} alt="" />}
+          </div>
+        )}
         <p className="muted">{session.showingTerm() ? "TERM" : "DEFINITION"}</p>
         <div className="prompt-body">
           {session.promptImage() && (
@@ -521,30 +774,60 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
               if (event.key === "Enter") {
                 event.preventDefault();
                 if (!session.checked) check();
-                else next();
+                else continueAfterMiss();
               }
             }}
           />
         </label>
         <div className="actions">
-          <button className="primary" onClick={check} disabled={session.checked}>Check</button>
-          <button onClick={next} disabled={!canNext}>{finish ? "Finish" : "Next"}</button>
+          <button type="button" className="primary" onClick={check} disabled={session.checked}>Check</button>
         </div>
         {notice && <p className="bad">{notice}</p>}
       </div>
-      <div className="result">
-        {(session.checked || sticky) && (
-          <div className={session.wasCorrect || sticky ? "banner ok" : "banner miss"}>
-            <strong className={session.wasCorrect || (sticky && !session.checked) ? "good" : "bad"}>
-              {session.wasCorrect || (sticky && !session.checked) ? "Correct" : "Not quite"}
-            </strong>
-            {session.checked && !session.wasCorrect && <p>Expected: {session.expectedText()}</p>}
-            {session.checked && !session.wasCorrect && reveal && (
-              <div className="frame"><img src={reveal} alt="" /></div>
-            )}
-            {session.checked && !session.wasCorrect && <p className="muted">Type the expected answer to continue.</p>}
+      {pagerOpen && <button type="button" className="sheet-backdrop" aria-label="Close card jump" onClick={() => setPagerOpen(false)} />}
+      <div className="sheet-dock" ref={menuRef}>
+        {pagerOpen && (
+          <div className="quiz-sheet pager-sheet" id="card-jump">
+            <div className="pager">
+              <button type="button" className="icon-button" aria-label="Previous card" disabled={!session.canStep(-1)} onClick={() => pageBy(-1)}>
+                <ArrowIcon direction="left" />
+              </button>
+              <div className="pager-center">
+                <label>
+                  Go to card
+                  <input
+                    type="number"
+                    min={1}
+                    max={session.cards.length}
+                    inputMode="numeric"
+                    value={jump}
+                    onChange={(event) => setJump(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        goToCard();
+                      }
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={goToCard}>Go</button>
+              </div>
+              <button type="button" className="icon-button" aria-label="Next card" disabled={!session.canStep(1)} onClick={() => pageBy(1)}>
+                <ArrowIcon direction="right" />
+              </button>
+            </div>
           </div>
         )}
+        <button
+          type="button"
+          className="sheet-handle"
+          aria-expanded={pagerOpen}
+          aria-controls="card-jump"
+          aria-label={pagerOpen ? "Close card jump" : "Go to card"}
+          onClick={() => setPagerOpen((open) => !open)}
+        >
+          <span className={pagerOpen ? "sheet-chevron down" : "sheet-chevron"} />
+        </button>
       </div>
     </section>
   );
@@ -561,7 +844,7 @@ function Progress({
   progress: MemoryProgress | null;
   onReset?: () => Promise<void>;
 }) {
-  if (!deck || !progress) return <section className="card"><p>Load a deck to see progress.</p></section>;
+  if (!deck || !progress) return <section className="card"><p>Open a deck to see progress.</p></section>;
   const [corrects, errors] = progress.totals();
   const attempts = corrects + errors;
   const accuracy = attempts === 0 ? 0 : Math.round((corrects / attempts) * 100);
