@@ -1,0 +1,782 @@
+[
+  {
+    "term": "Afghanistan",
+    "definition": "Kabul"
+  },
+  {
+    "term": "Albania",
+    "definition": "Tirana"
+  },
+  {
+    "term": "Algeria",
+    "definition": "Algiers"
+  },
+  {
+    "term": "Andorra",
+    "definition": "Andorra la Vella"
+  },
+  {
+    "term": "Angola",
+    "definition": "Luanda"
+  },
+  {
+    "term": "Antigua and Barbuda",
+    "definition": "Saint John's"
+  },
+  {
+    "term": "Argentina",
+    "definition": "Buenos Aires"
+  },
+  {
+    "term": "Armenia",
+    "definition": "Yerevan"
+  },
+  {
+    "term": "Australia",
+    "definition": "Canberra"
+  },
+  {
+    "term": "Austria",
+    "definition": "Vienna"
+  },
+  {
+    "term": "Azerbaijan",
+    "definition": "Baku"
+  },
+  {
+    "term": "Bahamas",
+    "definition": "Nassau"
+  },
+  {
+    "term": "Bahrain",
+    "definition": "Manama"
+  },
+  {
+    "term": "Bangladesh",
+    "definition": "Dhaka"
+  },
+  {
+    "term": "Barbados",
+    "definition": "Bridgetown"
+  },
+  {
+    "term": "Belarus",
+    "definition": "Minsk"
+  },
+  {
+    "term": "Belgium",
+    "definition": "Brussels"
+  },
+  {
+    "term": "Belize",
+    "definition": "Belmopan"
+  },
+  {
+    "term": "Benin",
+    "definition": "Porto-Novo"
+  },
+  {
+    "term": "Bhutan",
+    "definition": "Thimphu"
+  },
+  {
+    "term": "Bolivia",
+    "definition": "La Paz"
+  },
+  {
+    "term": "Bosnia and Herzegovina",
+    "definition": "Sarajevo"
+  },
+  {
+    "term": "Botswana",
+    "definition": "Gaborone"
+  },
+  {
+    "term": "Brazil",
+    "definition": "Brasilia"
+  },
+  {
+    "term": "Brunei",
+    "definition": "Bandar Seri Begawan"
+  },
+  {
+    "term": "Bulgaria",
+    "definition": "Sofia"
+  },
+  {
+    "term": "Burkina Faso",
+    "definition": "Ouagadougou"
+  },
+  {
+    "term": "Burundi",
+    "definition": "Gitega"
+  },
+  {
+    "term": "Cabo Verde",
+    "definition": "Praia"
+  },
+  {
+    "term": "Cambodia",
+    "definition": "Phnom Penh"
+  },
+  {
+    "term": "Cameroon",
+    "definition": "Yaounde"
+  },
+  {
+    "term": "Canada",
+    "definition": "Ottawa"
+  },
+  {
+    "term": "Central African Republic",
+    "definition": "Bangui"
+  },
+  {
+    "term": "Chad",
+    "definition": "N'Djamena"
+  },
+  {
+    "term": "Chile",
+    "definition": "Santiago"
+  },
+  {
+    "term": "China",
+    "definition": "Beijing"
+  },
+  {
+    "term": "Colombia",
+    "definition": "Bogota"
+  },
+  {
+    "term": "Comoros",
+    "definition": "Moroni"
+  },
+  {
+    "term": "Costa Rica",
+    "definition": "San Jose"
+  },
+  {
+    "term": "Croatia",
+    "definition": "Zagreb"
+  },
+  {
+    "term": "Cuba",
+    "definition": "Havana"
+  },
+  {
+    "term": "Cyprus",
+    "definition": "Nicosia"
+  },
+  {
+    "term": "Czechia",
+    "definition": "Prague"
+  },
+  {
+    "term": "Democratic Republic of the Congo",
+    "definition": "Kinshasa"
+  },
+  {
+    "term": "Denmark",
+    "definition": "Copenhagen"
+  },
+  {
+    "term": "Djibouti",
+    "definition": "Djibouti"
+  },
+  {
+    "term": "Dominica",
+    "definition": "Roseau"
+  },
+  {
+    "term": "Dominican Republic",
+    "definition": "Santo Domingo"
+  },
+  {
+    "term": "Ecuador",
+    "definition": "Quito"
+  },
+  {
+    "term": "Egypt",
+    "definition": "Cairo"
+  },
+  {
+    "term": "El Salvador",
+    "definition": "San Salvador"
+  },
+  {
+    "term": "Equatorial Guinea",
+    "definition": "Malabo"
+  },
+  {
+    "term": "Eritrea",
+    "definition": "Asmara"
+  },
+  {
+    "term": "Estonia",
+    "definition": "Tallinn"
+  },
+  {
+    "term": "Eswatini",
+    "definition": "Mbabane"
+  },
+  {
+    "term": "Ethiopia",
+    "definition": "Addis Ababa"
+  },
+  {
+    "term": "Fiji",
+    "definition": "Suva"
+  },
+  {
+    "term": "Finland",
+    "definition": "Helsinki"
+  },
+  {
+    "term": "France",
+    "definition": "Paris"
+  },
+  {
+    "term": "Gabon",
+    "definition": "Libreville"
+  },
+  {
+    "term": "Gambia",
+    "definition": "Banjul"
+  },
+  {
+    "term": "Georgia",
+    "definition": "Tbilisi"
+  },
+  {
+    "term": "Germany",
+    "definition": "Berlin"
+  },
+  {
+    "term": "Ghana",
+    "definition": "Accra"
+  },
+  {
+    "term": "Greece",
+    "definition": "Athens"
+  },
+  {
+    "term": "Grenada",
+    "definition": "Saint George's"
+  },
+  {
+    "term": "Guatemala",
+    "definition": "Guatemala City"
+  },
+  {
+    "term": "Guinea",
+    "definition": "Conakry"
+  },
+  {
+    "term": "Guinea-Bissau",
+    "definition": "Bissau"
+  },
+  {
+    "term": "Guyana",
+    "definition": "Georgetown"
+  },
+  {
+    "term": "Haiti",
+    "definition": "Port-au-Prince"
+  },
+  {
+    "term": "Honduras",
+    "definition": "Tegucigalpa"
+  },
+  {
+    "term": "Hungary",
+    "definition": "Budapest"
+  },
+  {
+    "term": "Iceland",
+    "definition": "Reykjavik"
+  },
+  {
+    "term": "India",
+    "definition": "New Delhi"
+  },
+  {
+    "term": "Indonesia",
+    "definition": "Jakarta"
+  },
+  {
+    "term": "Iran",
+    "definition": "Tehran"
+  },
+  {
+    "term": "Iraq",
+    "definition": "Baghdad"
+  },
+  {
+    "term": "Ireland",
+    "definition": "Dublin"
+  },
+  {
+    "term": "Israel",
+    "definition": "Jerusalem"
+  },
+  {
+    "term": "Italy",
+    "definition": "Rome"
+  },
+  {
+    "term": "Ivory Coast",
+    "definition": "Yamoussoukro"
+  },
+  {
+    "term": "Jamaica",
+    "definition": "Kingston"
+  },
+  {
+    "term": "Japan",
+    "definition": "Tokyo"
+  },
+  {
+    "term": "Jordan",
+    "definition": "Amman"
+  },
+  {
+    "term": "Kazakhstan",
+    "definition": "Astana"
+  },
+  {
+    "term": "Kenya",
+    "definition": "Nairobi"
+  },
+  {
+    "term": "Kiribati",
+    "definition": "Tarawa"
+  },
+  {
+    "term": "Kuwait",
+    "definition": "Kuwait City"
+  },
+  {
+    "term": "Kyrgyzstan",
+    "definition": "Bishkek"
+  },
+  {
+    "term": "Laos",
+    "definition": "Vientiane"
+  },
+  {
+    "term": "Latvia",
+    "definition": "Riga"
+  },
+  {
+    "term": "Lebanon",
+    "definition": "Beirut"
+  },
+  {
+    "term": "Lesotho",
+    "definition": "Maseru"
+  },
+  {
+    "term": "Liberia",
+    "definition": "Monrovia"
+  },
+  {
+    "term": "Libya",
+    "definition": "Tripoli"
+  },
+  {
+    "term": "Liechtenstein",
+    "definition": "Vaduz"
+  },
+  {
+    "term": "Lithuania",
+    "definition": "Vilnius"
+  },
+  {
+    "term": "Luxembourg",
+    "definition": "Luxembourg"
+  },
+  {
+    "term": "Madagascar",
+    "definition": "Antananarivo"
+  },
+  {
+    "term": "Malawi",
+    "definition": "Lilongwe"
+  },
+  {
+    "term": "Malaysia",
+    "definition": "Kuala Lumpur"
+  },
+  {
+    "term": "Maldives",
+    "definition": "Male"
+  },
+  {
+    "term": "Mali",
+    "definition": "Bamako"
+  },
+  {
+    "term": "Malta",
+    "definition": "Valletta"
+  },
+  {
+    "term": "Marshall Islands",
+    "definition": "Majuro"
+  },
+  {
+    "term": "Mauritania",
+    "definition": "Nouakchott"
+  },
+  {
+    "term": "Mauritius",
+    "definition": "Port Louis"
+  },
+  {
+    "term": "Mexico",
+    "definition": "Mexico City"
+  },
+  {
+    "term": "Micronesia",
+    "definition": "Palikir"
+  },
+  {
+    "term": "Moldova",
+    "definition": "Chisinau"
+  },
+  {
+    "term": "Monaco",
+    "definition": "Monaco"
+  },
+  {
+    "term": "Mongolia",
+    "definition": "Ulaanbaatar"
+  },
+  {
+    "term": "Montenegro",
+    "definition": "Podgorica"
+  },
+  {
+    "term": "Morocco",
+    "definition": "Rabat"
+  },
+  {
+    "term": "Mozambique",
+    "definition": "Maputo"
+  },
+  {
+    "term": "Myanmar",
+    "definition": "Naypyidaw"
+  },
+  {
+    "term": "Namibia",
+    "definition": "Windhoek"
+  },
+  {
+    "term": "Nauru",
+    "definition": "Yaren"
+  },
+  {
+    "term": "Nepal",
+    "definition": "Kathmandu"
+  },
+  {
+    "term": "Netherlands",
+    "definition": "Amsterdam"
+  },
+  {
+    "term": "New Zealand",
+    "definition": "Wellington"
+  },
+  {
+    "term": "Nicaragua",
+    "definition": "Managua"
+  },
+  {
+    "term": "Niger",
+    "definition": "Niamey"
+  },
+  {
+    "term": "Nigeria",
+    "definition": "Abuja"
+  },
+  {
+    "term": "North Korea",
+    "definition": "Pyongyang"
+  },
+  {
+    "term": "North Macedonia",
+    "definition": "Skopje"
+  },
+  {
+    "term": "Norway",
+    "definition": "Oslo"
+  },
+  {
+    "term": "Oman",
+    "definition": "Muscat"
+  },
+  {
+    "term": "Pakistan",
+    "definition": "Islamabad"
+  },
+  {
+    "term": "Palau",
+    "definition": "Ngerulmud"
+  },
+  {
+    "term": "Panama",
+    "definition": "Panama City"
+  },
+  {
+    "term": "Papua New Guinea",
+    "definition": "Port Moresby"
+  },
+  {
+    "term": "Paraguay",
+    "definition": "Asuncion"
+  },
+  {
+    "term": "Peru",
+    "definition": "Lima"
+  },
+  {
+    "term": "Philippines",
+    "definition": "Manila"
+  },
+  {
+    "term": "Poland",
+    "definition": "Warsaw"
+  },
+  {
+    "term": "Portugal",
+    "definition": "Lisbon"
+  },
+  {
+    "term": "Qatar",
+    "definition": "Doha"
+  },
+  {
+    "term": "Republic of the Congo",
+    "definition": "Brazzaville"
+  },
+  {
+    "term": "Romania",
+    "definition": "Bucharest"
+  },
+  {
+    "term": "Russia",
+    "definition": "Moscow"
+  },
+  {
+    "term": "Rwanda",
+    "definition": "Kigali"
+  },
+  {
+    "term": "Saint Kitts and Nevis",
+    "definition": "Basseterre"
+  },
+  {
+    "term": "Saint Lucia",
+    "definition": "Castries"
+  },
+  {
+    "term": "Saint Vincent and the Grenadines",
+    "definition": "Kingstown"
+  },
+  {
+    "term": "Samoa",
+    "definition": "Apia"
+  },
+  {
+    "term": "San Marino",
+    "definition": "San Marino"
+  },
+  {
+    "term": "Sao Tome and Principe",
+    "definition": "Sao Tome"
+  },
+  {
+    "term": "Saudi Arabia",
+    "definition": "Riyadh"
+  },
+  {
+    "term": "Senegal",
+    "definition": "Dakar"
+  },
+  {
+    "term": "Serbia",
+    "definition": "Belgrade"
+  },
+  {
+    "term": "Seychelles",
+    "definition": "Victoria"
+  },
+  {
+    "term": "Sierra Leone",
+    "definition": "Freetown"
+  },
+  {
+    "term": "Singapore",
+    "definition": "Singapore"
+  },
+  {
+    "term": "Slovakia",
+    "definition": "Bratislava"
+  },
+  {
+    "term": "Slovenia",
+    "definition": "Ljubljana"
+  },
+  {
+    "term": "Solomon Islands",
+    "definition": "Honiara"
+  },
+  {
+    "term": "Somalia",
+    "definition": "Mogadishu"
+  },
+  {
+    "term": "South Africa",
+    "definition": "Pretoria"
+  },
+  {
+    "term": "South Korea",
+    "definition": "Seoul"
+  },
+  {
+    "term": "South Sudan",
+    "definition": "Juba"
+  },
+  {
+    "term": "Spain",
+    "definition": "Madrid"
+  },
+  {
+    "term": "Sri Lanka",
+    "definition": "Colombo"
+  },
+  {
+    "term": "Sudan",
+    "definition": "Khartoum"
+  },
+  {
+    "term": "Suriname",
+    "definition": "Paramaribo"
+  },
+  {
+    "term": "Sweden",
+    "definition": "Stockholm"
+  },
+  {
+    "term": "Switzerland",
+    "definition": "Bern"
+  },
+  {
+    "term": "Syria",
+    "definition": "Damascus"
+  },
+  {
+    "term": "Taiwan",
+    "definition": "Taipei"
+  },
+  {
+    "term": "Tajikistan",
+    "definition": "Dushanbe"
+  },
+  {
+    "term": "Tanzania",
+    "definition": "Dodoma"
+  },
+  {
+    "term": "Thailand",
+    "definition": "Bangkok"
+  },
+  {
+    "term": "Timor-Leste",
+    "definition": "Dili"
+  },
+  {
+    "term": "Togo",
+    "definition": "Lome"
+  },
+  {
+    "term": "Tonga",
+    "definition": "Nuku'alofa"
+  },
+  {
+    "term": "Trinidad and Tobago",
+    "definition": "Port of Spain"
+  },
+  {
+    "term": "Tunisia",
+    "definition": "Tunis"
+  },
+  {
+    "term": "Turkey",
+    "definition": "Ankara"
+  },
+  {
+    "term": "Turkmenistan",
+    "definition": "Ashgabat"
+  },
+  {
+    "term": "Tuvalu",
+    "definition": "Funafuti"
+  },
+  {
+    "term": "Uganda",
+    "definition": "Kampala"
+  },
+  {
+    "term": "Ukraine",
+    "definition": "Kyiv"
+  },
+  {
+    "term": "United Arab Emirates",
+    "definition": "Abu Dhabi"
+  },
+  {
+    "term": "United Kingdom",
+    "definition": "London"
+  },
+  {
+    "term": "United States",
+    "definition": "Washington"
+  },
+  {
+    "term": "Uruguay",
+    "definition": "Montevideo"
+  },
+  {
+    "term": "Uzbekistan",
+    "definition": "Tashkent"
+  },
+  {
+    "term": "Vanuatu",
+    "definition": "Port Vila"
+  },
+  {
+    "term": "Vatican City",
+    "definition": "Vatican City"
+  },
+  {
+    "term": "Venezuela",
+    "definition": "Caracas"
+  },
+  {
+    "term": "Vietnam",
+    "definition": "Hanoi"
+  },
+  {
+    "term": "Yemen",
+    "definition": "Sana'a"
+  },
+  {
+    "term": "Zambia",
+    "definition": "Lusaka"
+  },
+  {
+    "term": "Zimbabwe",
+    "definition": "Harare"
+  }
+]

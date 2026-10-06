@@ -1,0 +1,1 @@
+"""Plain flashcards inside MemoType."""
