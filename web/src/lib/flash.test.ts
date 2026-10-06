@@ -7,6 +7,7 @@ import {
   type Rng,
   Session,
   WEIGHTED,
+  cardKey,
   hardestRows,
   normalizeAnswer,
   parseDeck,
@@ -56,7 +57,7 @@ describe("session", () => {
     expect(session.sessionMistakes).toBe(1);
     expect(session.advance("nope")).toBe("need-correction");
     expect(session.advance("Madrid")).toBe("advanced");
-    expect(progress.get("deck", "Spain\u0000Madrid").e).toBe(1);
+    expect(progress.get("deck", cardKey(cards[1])).e).toBe(1);
     session.restart();
     expect(session.sessionMistakes).toBe(0);
     expect(progress.totals()).toEqual([1, 1]);
@@ -94,8 +95,8 @@ describe("session", () => {
         return population[best];
       },
     };
-    progress.record("deck", "\u0000Heron", false, 1);
-    progress.record("deck", "\u0000Heron", false, 2);
+    progress.record("deck", cardKey(cards[2]), false, 1);
+    progress.record("deck", cardKey(cards[2]), false, 2);
     const session = new Session("deck", cards, progress, rng);
     session.setMode(WEIGHTED);
     expect(session.currentIndex()).toBe(2);
@@ -113,9 +114,9 @@ describe("session", () => {
 
   it("sorts the hardest cards by weight, then errors", () => {
     const progress = new MemoryProgress("deck");
-    progress.record("deck", "France\u0000Paris", true, 1);
-    progress.record("deck", "Spain\u0000Madrid", false, 2);
-    progress.record("deck", "Spain\u0000Madrid", false, 3);
+    progress.record("deck", cardKey(cards[0]), true, 1);
+    progress.record("deck", cardKey(cards[1]), false, 2);
+    progress.record("deck", cardKey(cards[1]), false, 3);
     const rows = hardestRows(cards, progress, "deck");
     expect(rows[0].term).toBe("Spain");
     expect(rows[1].term).toBe("France");

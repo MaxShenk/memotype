@@ -258,7 +258,8 @@ function Game({
     setTracked({ id: source.id, mode });
     if (untouched) setEngine(new Engine(source.body, mode));
   }
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lined = useRef(false);
   const recorded = useRef<Engine | null>(null);
   const [tick, setTick] = useState(0);
   const [alert, setAlert] = useState(false);
@@ -342,16 +343,23 @@ function Game({
       <div className="card answer">
         <label>
           Type here
-            <input
+            <textarea
             ref={inputRef}
+            className="type-line"
+            rows={1}
+            enterKeyHint="enter"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
             autoComplete="off"
             disabled={engine.finished}
             onChange={(event) => {
-              const value = event.target.value;
+              let value = event.target.value;
               event.target.value = "";
+              if (lined.current) {
+                lined.current = false;
+                value = value.replace(/\r?\n/g, "");
+              }
               if (value) take(value);
             }}
             onKeyDown={(event) => {
@@ -359,6 +367,12 @@ function Game({
                 event.preventDefault();
                 engine.backspace();
                 bump(false);
+                return;
+              }
+              if (event.key === "Enter" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                event.preventDefault();
+                lined.current = true;
+                take("\n");
               }
             }}
           />

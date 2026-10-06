@@ -8,8 +8,11 @@ export type Card = { term: string; definition: string; image: string };
 
 export type Stats = { e: number; c: number; ls: number };
 
+// Postgres text cannot store a NUL byte, so the stored key uses unit separator.
+export const CARD_KEY_SEPARATOR = "\u001f";
+
 export function cardKey(card: Card): string {
-  return card.term + "\u0000" + card.definition;
+  return card.term + CARD_KEY_SEPARATOR + card.definition;
 }
 
 export function normalizeAnswer(text: string): string {
