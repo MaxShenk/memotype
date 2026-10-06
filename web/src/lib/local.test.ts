@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { localImportDeck, localListDecks, localLoadCards, localReplaceCards, localSaveDeck } from "./local";
 
 const store = new Map<string, string>();
-let sequence = 0;
+let sequence = 1;
 
 beforeEach(() => {
   store.clear();
-  sequence = 0;
+  sequence = 1;
   Object.defineProperty(globalThis, "crypto", {
     configurable: true,
     value: { randomUUID: () => `00000000-0000-4000-8000-${String(++sequence).padStart(12, "0")}` },
@@ -41,5 +41,14 @@ describe("local decks", () => {
     expect(localListDecks().some((row) => row.name === "Trees")).toBe(true);
     localReplaceCards(created.id, [{ term: "Elm", definition: "Tree" }]);
     expect(localLoadCards(created.id).map((card) => card.term)).toEqual(["Elm"]);
+  });
+
+  it("keeps a card that is turned off", () => {
+    const created = localImportDeck("Plants", [{ term: "Oak", definition: "Tree" }, { term: "Ivy", definition: "Vine" }]);
+    localSaveDeck(created.id, "Plants", [
+      { term: "Oak", definition: "Tree", image: "", enabled: false },
+      { term: "Ivy", definition: "Vine", image: "", enabled: true },
+    ]);
+    expect(localLoadCards(created.id).map((card) => card.enabled)).toEqual([false, true]);
   });
 });

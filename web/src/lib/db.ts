@@ -185,10 +185,11 @@ async function writeCards(deckId: string, cards: Card[]): Promise<void> {
     term: card.term,
     definition: card.definition,
     image: card.image,
+    enabled: card.enabled !== false,
     card_key: cardKey(card),
   }));
   const inserted = await db().from("cards").insert(rows);
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) throw enabledColumnError(inserted.error);
 }
 
 export async function deleteDeck(id: string): Promise<void> {
@@ -200,15 +201,41 @@ export async function deleteDeck(id: string): Promise<void> {
   if (error) throw error;
 }
 
+function enabledColumnError(error: { message: string }): Error {
+  if (/enabled/i.test(error.message) && /column/i.test(error.message)) {
+    return new Error("Run this in the Supabase SQL editor, then save again: alter table public.cards add column if not exists enabled boolean not null default true;");
+  }
+  return error instanceof Error ? error : new Error(error.message);
+}
+
 export async function loadCards(deckId: string): Promise<Card[]> {
   if (!supabase) return localLoadCards(deckId);
-  const { data, error } = await db()
+  const first = await db()
     .from("cards")
-    .select("term,definition,image,position")
+    .select("term,definition,image,position,enabled")
     .eq("deck_id", deckId)
     .order("position");
-  if (error) throw error;
-  return (data ?? []).map((row) => ({ term: row.term, definition: row.definition, image: row.image ?? "" }));
+  if (first.error && /enabled/i.test(first.error.message) && /column/i.test(first.error.message)) {
+    const second = await db()
+      .from("cards")
+      .select("term,definition,image,position")
+      .eq("deck_id", deckId)
+      .order("position");
+    if (second.error) throw second.error;
+    return (second.data ?? []).map((row) => ({
+      term: row.term,
+      definition: row.definition,
+      image: row.image ?? "",
+      enabled: true,
+    }));
+  }
+  if (first.error) throw first.error;
+  return (first.data ?? []).map((row) => ({
+    term: row.term,
+    definition: row.definition,
+    image: row.image ?? "",
+    enabled: row.enabled !== false,
+  }));
 }
 
 export async function loadStats(deckId: string): Promise<Map<string, { e: number; c: number; ls: number }>> {

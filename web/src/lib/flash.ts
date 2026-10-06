@@ -4,7 +4,11 @@ export const STANDARD = "standard";
 export const CHUNKING = "chunking";
 export const WEIGHTED = "weighted";
 
-export type Card = { term: string; definition: string; image: string };
+export type Card = { term: string; definition: string; image: string; enabled?: boolean };
+
+export function cardEnabled(card: Card): boolean {
+  return card.enabled !== false;
+}
 
 export type Stats = { e: number; c: number; ls: number };
 
@@ -132,7 +136,7 @@ function parseCard(entry: unknown, number: number): Card {
       throw new DeckParseError(`Card #${number} image must be an https URL or a data:image URI.`);
     }
   }
-  return { term, definition, image };
+  return { term, definition, image, enabled: record.enabled !== false };
 }
 
 export class MemoryProgress implements Progress {
@@ -196,7 +200,12 @@ export class Session {
     readonly rng: Rng = defaultRng(),
   ) {
     if (cards.length === 0) throw new Error("A session needs at least one card.");
+    if (this.playable().length === 0) throw new Error("Turn at least one card on.");
     this.restart();
+  }
+
+  private playable(): number[] {
+    return this.cards.map((_, index) => index).filter((index) => cardEnabled(this.cards[index]));
   }
 
   restart(): void {
@@ -205,7 +214,7 @@ export class Session {
     this.checked = false;
     this.wasCorrect = false;
     this.correctionRequired = false;
-    this.order = this.cards.map((_, index) => index);
+    this.order = this.playable();
     if (this.shuffle && this.mode !== WEIGHTED) this.rng.shuffle(this.order);
     this.cursor = 0;
     this.chunkStart = 0;
@@ -246,7 +255,7 @@ export class Session {
     this.shuffle = shuffle;
     if (this.mode === WEIGHTED) return;
     if (!shuffle) {
-      this.order = this.cards.map((_, index) => index);
+      this.order = this.playable();
     } else {
       const pos = Math.max(0, this.order.indexOf(current));
       const others = this.order.filter((item) => item !== current);
@@ -322,6 +331,21 @@ export class Session {
     return `${index + 1} / ${total}`;
   }
 
+  jumpTo(cardNumber: number): string {
+    if (!Number.isInteger(cardNumber) || cardNumber < 1 || cardNumber > this.cards.length) return "missing";
+    const index = cardNumber - 1;
+    if (!cardEnabled(this.cards[index])) return "off";
+    this.checked = false;
+    this.wasCorrect = false;
+    this.correctionRequired = false;
+    if (this.mode === WEIGHTED) {
+      this.weightedIndex = index;
+      return "ok";
+    }
+    this.pin(index);
+    return "ok";
+  }
+
   matches(typed: string): boolean {
     const expected = normalizeAnswer(this.expectedText());
     const given = normalizeAnswer(typed);
@@ -380,7 +404,7 @@ export class Session {
       this.mastered = new Set();
       this.cursor = 0;
       if (this.chunkStart >= this.order.length) {
-        this.order = this.cards.map((_, index) => index);
+        this.order = this.playable();
         if (this.shuffle) this.rng.shuffle(this.order);
         this.chunkStart = 0;
       }
@@ -400,8 +424,8 @@ export class Session {
   }
 
   private pickWeighted(exclude: number | null): number {
-    let indexes = this.cards.map((_, index) => index).filter((index) => index !== exclude);
-    if (indexes.length === 0) indexes = this.cards.map((_, index) => index);
+    let indexes = this.playable().filter((index) => index !== exclude);
+    if (indexes.length === 0) indexes = this.playable();
     const weights = indexes.map((index) => {
       const stats = this.progress.get(this.deckId, cardKey(this.cards[index]));
       return cardWeight(stats.e, stats.c);

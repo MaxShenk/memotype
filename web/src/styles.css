@@ -192,6 +192,18 @@ h1 { font-size: 1.4rem; margin: 0; }
   align-items: stretch;
 }
 
+.item.off { opacity: 0.55; }
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.jump { width: auto; }
+.jump input { width: 6rem; }
+
 .score-line {
   display: grid;
   grid-template-columns: 2.2rem 1fr auto;

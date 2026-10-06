@@ -180,7 +180,7 @@ export function localLoadCards(deckId: string): Card[] {
   return read()
     .cards.filter((row) => row.deck_id === deckId)
     .sort((a, b) => a.position - b.position)
-    .map((row) => ({ term: row.term, definition: row.definition, image: row.image }));
+    .map((row) => ({ term: row.term, definition: row.definition, image: row.image, enabled: row.enabled !== false }));
 }
 
 export function localLoadStats(deckId: string): Map<string, { e: number; c: number; ls: number }> {

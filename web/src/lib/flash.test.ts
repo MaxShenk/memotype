@@ -35,6 +35,7 @@ describe("parseDeck", () => {
     expect(() => parseDeck([{ term: "A", definition: "  " }])).toThrow(/definition/);
     expect(() => parseDeck([{ term: "", definition: "Paris" }])).toThrow(/term/);
     expect(() => parseDeck([{ term: "A", definition: "B", image: "dot.png" }])).toThrow(/https/);
+    expect(parseDeck([{ term: "A", definition: "B", enabled: false }])[0].enabled).toBe(false);
   });
 });
 
@@ -137,6 +138,40 @@ describe("session", () => {
     session.setMode(STANDARD);
     expect(session.currentIndex()).toBe(1);
     expect(session.cursor).toBe(1);
+  });
+
+  it("skips a turned-off card and jumps by deck number", () => {
+    const deck: Card[] = [
+      { term: "A", definition: "1", image: "", enabled: true },
+      { term: "B", definition: "2", image: "", enabled: false },
+      { term: "C", definition: "3", image: "", enabled: true },
+    ];
+    const session = new Session("deck", deck, new MemoryProgress("deck"));
+    expect(session.order).toEqual([0, 2]);
+    expect(session.positionLabel()).toBe("1 / 3");
+    expect(session.jumpTo(2)).toBe("off");
+    expect(session.currentIndex()).toBe(0);
+    expect(session.jumpTo(3)).toBe("ok");
+    expect(session.currentIndex()).toBe(2);
+    expect(session.positionLabel()).toBe("3 / 3");
+    expect(session.jumpTo(4)).toBe("missing");
+    session.check("3", 1);
+    session.advance("");
+    expect(session.currentIndex()).toBe(0);
+  });
+
+  it("draws only cards that are turned on", () => {
+    const deck: Card[] = [
+      { term: "A", definition: "1", image: "", enabled: false },
+      { term: "B", definition: "2", image: "", enabled: true },
+    ];
+    const rng: Rng = { shuffle() {}, choices: (population) => population[0] };
+    const session = new Session("deck", deck, new MemoryProgress("deck"), rng);
+    session.setMode(WEIGHTED);
+    expect(session.currentIndex()).toBe(1);
+    session.check("2", 1);
+    session.advance("");
+    expect(session.currentIndex()).toBe(1);
   });
 
   it("sorts the hardest cards by weight, then errors", () => {

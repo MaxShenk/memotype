@@ -16,6 +16,7 @@ import {
 import {
   CHUNKING,
   type Card,
+  cardEnabled,
   MemoryProgress,
   STANDARD,
   Session,
@@ -278,14 +279,28 @@ function DeckEditor({
     onCards(cards.map((card, item) => (item === index ? { ...card, ...patch } : card)));
   }
 
+  const playing = cards.filter((card) => cardEnabled(card)).length;
+
   return (
     <section className="list deck-editor">
       <label>
         Deck name
         <input value={name} onChange={(event) => onName(event.target.value)} />
       </label>
+      <p className="muted">{playing} of {cards.length} in rotation. Turned-off cards stay in the deck.</p>
       {cards.map((card, index) => (
-        <article className="card item" key={index}>
+        <article className={cardEnabled(card) ? "card item" : "card item off"} key={index}>
+          <div className="card-head">
+            <strong>Card {index + 1}</strong>
+            <label className="pick">
+              <input
+                type="checkbox"
+                checked={cardEnabled(card)}
+                onChange={(event) => update(index, { enabled: event.target.checked })}
+              />
+              In rotation
+            </label>
+          </div>
           <label>
             Term
             <input value={card.term} onChange={(event) => update(index, { term: event.target.value })} />
@@ -298,7 +313,7 @@ function DeckEditor({
         </article>
       ))}
       <div className="actions">
-        <button onClick={() => onCards([...cards, { term: "", definition: "", image: "" }])}>Add card</button>
+        <button onClick={() => onCards([...cards, { term: "", definition: "", image: "", enabled: true }])}>Add card</button>
         <button className="primary" onClick={onSave}>Save</button>
         <button onClick={onCancel}>Cancel</button>
       </div>
@@ -314,10 +329,12 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
   const [answer, setAnswer] = useState("");
   const [sticky, setSticky] = useState(false);
   const [notice, setNotice] = useState("");
+  const [jump, setJump] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const focusAnswer = useRef(false);
 
-  if (deck && progress && cards.length && sessionRef.current?.deckId !== deck.id) {
+  const activeCount = cards.filter((card) => cardEnabled(card)).length;
+  if (deck && progress && cards.length && activeCount > 0 && sessionRef.current?.deckId !== deck.id) {
     sessionRef.current = new Session(deck.id, cards, progress);
   }
   const session = sessionRef.current;
@@ -344,7 +361,28 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
   }
 
   if (!session || !deck) {
+    if (deck && cards.length > 0 && activeCount === 0) {
+      return <section className="card"><p>Every card in {deck.name} is turned off. Open the deck editor and turn at least one back on.</p></section>;
+    }
     return <section className="card"><p>Load a deck to begin.</p></section>;
+  }
+
+  function goToCard() {
+    const number = Number(jump);
+    const result = session?.jumpTo(number);
+    cancelAdvance();
+    if (result === "ok") {
+      setNotice("");
+      setAnswer("");
+      setSticky(false);
+      focusAnswer.current = true;
+      inputRef.current?.focus();
+      bump();
+      return;
+    }
+    if (result === "off") setNotice(`Card ${number} is turned off.`);
+    else setNotice(`Enter a card from 1 to ${session?.cards.length ?? 0}.`);
+    bump();
   }
 
   function check() {
@@ -437,6 +475,24 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
           {session.shuffle ? "Shuffle on" : "Shuffle off"}
         </button>
         <button onClick={() => { cancelAdvance(); session.restart(); setAnswer(""); setSticky(false); bump(); }}>Restart</button>
+        <label className="jump">
+          Go to card
+          <input
+            type="number"
+            min={1}
+            max={session.cards.length}
+            inputMode="numeric"
+            value={jump}
+            onChange={(event) => setJump(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                goToCard();
+              }
+            }}
+          />
+        </label>
+        <button type="button" onClick={goToCard}>Go</button>
       </div>
       <article className="card prompt">
         <p className="muted">{session.showingTerm() ? "TERM" : "DEFINITION"}</p>

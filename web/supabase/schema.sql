@@ -40,8 +40,11 @@ create table if not exists public.cards (
   definition text not null,
   image text not null default '',
   card_key text not null,
+  enabled boolean not null default true,
   unique (deck_id, card_key)
 );
+
+alter table public.cards add column if not exists enabled boolean not null default true;
 
 create table if not exists public.card_stats (
   user_id uuid not null references auth.users (id) on delete cascade,
