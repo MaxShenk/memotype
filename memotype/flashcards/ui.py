@@ -194,6 +194,7 @@ class Flashcards:
         self.cancel()
         self.sticky_correct = False
         self.session.set_start_with_term(not self.session.start_with_term)
+        self._clear_answer()
         self._render_quiz()
         self._focus_answer()
 

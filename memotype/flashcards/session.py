@@ -98,21 +98,62 @@ class Session:
     def set_mode(self, mode: str) -> None:
         if mode not in (STANDARD, CHUNKING, WEIGHTED):
             raise ValueError(mode)
+        if mode == self.mode:
+            return
+        current = self.current_index()
         self.mode = mode
-        self.restart()
+        if mode == WEIGHTED:
+            self.weighted_index = current
+            return
+        if mode == CHUNKING:
+            self.mastered = set()
+        self._pin(current)
 
     def set_chunk_size(self, size: int) -> None:
+        current = self.current_index()
         self.chunk_size = max(1, int(size))
         if self.mode == CHUNKING:
-            self.restart()
+            self._pin(current)
 
     def set_start_with_term(self, start_with_term: bool) -> None:
+        if self.start_with_term == start_with_term:
+            return
         self.start_with_term = start_with_term
-        self.restart()
+        self.checked = False
+        self.was_correct = False
+        self.correction_required = False
 
     def set_shuffle(self, shuffle: bool) -> None:
+        if self.shuffle == shuffle:
+            return
+        current = self.current_index()
         self.shuffle = shuffle
-        self.restart()
+        if self.mode == WEIGHTED:
+            return
+        if not shuffle:
+            self.order = list(range(len(self.cards)))
+        else:
+            pos = self.order.index(current) if current in self.order else 0
+            others = [item for item in self.order if item != current]
+            self.rng.shuffle(others)
+            others.insert(pos, current)
+            self.order = others
+        self._pin(current)
+
+    def _pin(self, current: int) -> None:
+        pos = self.order.index(current) if current in self.order else 0
+        if self.mode != CHUNKING:
+            self.cursor = pos
+            return
+        if pos < self.chunk_start or pos >= self.chunk_start + self.chunk_size:
+            aligned = (pos // self.chunk_size) * self.chunk_size
+            max_start = max(0, len(self.order) - self.chunk_size)
+            self.chunk_start = min(aligned, max_start)
+            if pos < self.chunk_start or pos >= self.chunk_start + self.chunk_size:
+                self.chunk_start = max(0, min(pos, len(self.order) - 1))
+        window = self._chunk()
+        self.cursor = window.index(current) if current in window else 0
+        self.mastered = {item for item in self.mastered if item in window}
 
     def current_index(self) -> int:
         if self.mode == WEIGHTED:

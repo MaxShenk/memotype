@@ -141,6 +141,10 @@ class SessionTests(unittest.TestCase):
         progress.record("deck", cards[2].key(), False, 1)
         progress.record("deck", cards[2].key(), False, 2)
         session.set_mode(WEIGHTED)
+        self.assertEqual(session.current_index(), 0)
+        session.checked = True
+        session.correction_required = False
+        session.advance("")
         self.assertEqual(session.current_index(), 2)
         seen = [session.current_index()]
         for _ in range(6):

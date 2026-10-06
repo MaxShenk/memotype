@@ -11,7 +11,9 @@ import {
   localLoadCards,
   localLoadStats,
   localRecordScore,
+  localReplaceCards,
   localResetStats,
+  localSaveDeck,
   localSaveSource,
   localSaveStat,
 } from "./local";
@@ -125,13 +127,60 @@ export async function listDecks(): Promise<DeckRow[]> {
   return rows;
 }
 
-export async function importDeck(name: string, raw: unknown): Promise<string> {
-  if (!supabase) return localImportDeck(name, raw);
+export async function importDeck(name: string, raw: unknown): Promise<{ id: string; updated: boolean }> {
   const cards = parseDeck(raw);
-  const { data, error } = await db().from("decks").insert({ name: sanitizeName(name) }).select("id").single();
+  const clean = sanitizeName(name);
+  if (!supabase) return localImportDeck(clean, raw);
+  const existing = (await listDecks()).find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
+  if (existing) {
+    await writeCards(existing.id, cards);
+    return { id: existing.id, updated: true };
+  }
+  const { data, error } = await db().from("decks").insert({ name: clean }).select("id").single();
   if (error) throw error;
+  await writeCards(data.id as string, cards);
+  return { id: data.id as string, updated: false };
+}
+
+export async function saveDeck(id: string, name: string, cards: Card[]): Promise<void> {
+  const parsed = parseDeck(cards);
+  const clean = sanitizeName(name);
+  if (!supabase) {
+    localSaveDeck(id, clean, parsed);
+    return;
+  }
+  await assertMutable(id);
+  const decks = await listDecks();
+  if (decks.some((row) => row.id !== id && row.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error("A deck with that name already exists.");
+  }
+  const renamed = await db().from("decks").update({ name: clean, updated_at: new Date().toISOString() }).eq("id", id);
+  if (renamed.error) throw renamed.error;
+  await writeCards(id, parsed);
+}
+
+export async function replaceDeck(id: string, raw: unknown): Promise<void> {
+  const cards = parseDeck(raw);
+  if (!supabase) {
+    localReplaceCards(id, raw);
+    return;
+  }
+  await assertMutable(id);
+  await writeCards(id, cards);
+}
+
+async function assertMutable(id: string): Promise<void> {
+  const { data, error } = await db().from("decks").select("builtin_key").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("That deck is gone.");
+  if (data.builtin_key) throw new Error("Built-in decks stay as they are.");
+}
+
+async function writeCards(deckId: string, cards: Card[]): Promise<void> {
+  const removed = await db().from("cards").delete().eq("deck_id", deckId);
+  if (removed.error) throw removed.error;
   const rows = cards.map((card, position) => ({
-    deck_id: data.id,
+    deck_id: deckId,
     position,
     term: card.term,
     definition: card.definition,
@@ -140,7 +189,6 @@ export async function importDeck(name: string, raw: unknown): Promise<string> {
   }));
   const inserted = await db().from("cards").insert(rows);
   if (inserted.error) throw inserted.error;
-  return data.id as string;
 }
 
 export async function deleteDeck(id: string): Promise<void> {

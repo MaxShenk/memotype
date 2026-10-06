@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHUNKING,
   type Card,
+  STANDARD,
   DeckParseError,
   MemoryProgress,
   type Rng,
@@ -99,6 +100,10 @@ describe("session", () => {
     progress.record("deck", cardKey(cards[2]), false, 2);
     const session = new Session("deck", cards, progress, rng);
     session.setMode(WEIGHTED);
+    expect(session.currentIndex()).toBe(0);
+    session.checked = true;
+    session.correctionRequired = false;
+    session.advance("");
     expect(session.currentIndex()).toBe(2);
     const seen = [session.currentIndex()];
     for (let i = 0; i < 6; i += 1) {
@@ -110,6 +115,28 @@ describe("session", () => {
     expect(seen.every((value, index) => index === 0 || value !== seen[index - 1])).toBe(true);
     const count = (n: number) => seen.filter((value) => value === n).length;
     expect(count(2)).toBeGreaterThan(count(1));
+  });
+
+  it("keeps the current card when settings change", () => {
+    const session = new Session("deck", cards, new MemoryProgress("deck"));
+    session.cursor = 1;
+    expect(session.check("Madrid", 1)).toBe("correct");
+    session.setShuffle(true);
+    expect(session.currentIndex()).toBe(1);
+    expect(session.checked).toBe(true);
+    session.setMode(CHUNKING);
+    expect(session.currentIndex()).toBe(1);
+    session.setChunkSize(1);
+    expect(session.currentIndex()).toBe(1);
+    session.setStartWithTerm(false);
+    expect(session.currentIndex()).toBe(1);
+    expect(session.checked).toBe(false);
+    expect(session.sessionMistakes).toBe(0);
+    session.setShuffle(false);
+    expect(session.currentIndex()).toBe(1);
+    session.setMode(STANDARD);
+    expect(session.currentIndex()).toBe(1);
+    expect(session.cursor).toBe(1);
   });
 
   it("sorts the hardest cards by weight, then errors", () => {

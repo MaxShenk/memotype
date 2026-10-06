@@ -1,0 +1,610 @@
+[
+  {
+    "term": "Feature",
+    "definition": "An input the model uses to make a prediction"
+  },
+  {
+    "term": "Label",
+    "definition": "The outcome a supervised model is trained to predict"
+  },
+  {
+    "term": "Example",
+    "definition": "One record of features and an optional label"
+  },
+  {
+    "term": "Supervised learning",
+    "definition": "Learn a mapping from features to known labels"
+  },
+  {
+    "term": "Unsupervised learning",
+    "definition": "Find structure in examples that have no labels"
+  },
+  {
+    "term": "Classification",
+    "definition": "Predict which category an example belongs to"
+  },
+  {
+    "term": "Regression",
+    "definition": "Predict a numeric value"
+  },
+  {
+    "term": "Forecasting",
+    "definition": "Predict future numbers from past time series data"
+  },
+  {
+    "term": "Clustering",
+    "definition": "Group similar examples without using labels"
+  },
+  {
+    "term": "Embedding",
+    "definition": "A list of numbers that captures meaning"
+  },
+  {
+    "term": "Training set",
+    "definition": "Examples the model is allowed to learn from"
+  },
+  {
+    "term": "Validation set",
+    "definition": "Examples used to choose settings during development"
+  },
+  {
+    "term": "Test set",
+    "definition": "Examples kept unseen until the final score"
+  },
+  {
+    "term": "Data split",
+    "definition": "How rows are divided into train validate and test"
+  },
+  {
+    "term": "Random split",
+    "definition": "Assign each row to a split by chance"
+  },
+  {
+    "term": "Chronological split",
+    "definition": "Train on older rows and score on newer rows"
+  },
+  {
+    "term": "Stratified split",
+    "definition": "Keep the class mix similar in every split"
+  },
+  {
+    "term": "Data leakage",
+    "definition": "Training sees information that will be absent at serve time"
+  },
+  {
+    "term": "Target leakage",
+    "definition": "A feature that secretly contains the label"
+  },
+  {
+    "term": "Parameter",
+    "definition": "A weight the training process updates"
+  },
+  {
+    "term": "Hyperparameter",
+    "definition": "A setting you choose before training starts"
+  },
+  {
+    "term": "Overfitting",
+    "definition": "Strong on training data and weak on new data"
+  },
+  {
+    "term": "Underfitting",
+    "definition": "Model is too simple to capture the pattern"
+  },
+  {
+    "term": "Generalization",
+    "definition": "How well the model scores examples it never saw"
+  },
+  {
+    "term": "Feature engineering",
+    "definition": "Turn raw columns into inputs a model can use"
+  },
+  {
+    "term": "Categorical feature",
+    "definition": "An input whose values are names or codes"
+  },
+  {
+    "term": "Numerical feature",
+    "definition": "An input whose values are quantities"
+  },
+  {
+    "term": "Offline features",
+    "definition": "Historical feature values used to build training rows"
+  },
+  {
+    "term": "Online features",
+    "definition": "Current feature values looked up at prediction time"
+  },
+  {
+    "term": "Class imbalance",
+    "definition": "One class appears far less often than the others"
+  },
+  {
+    "term": "Precision",
+    "definition": "Share of positive predictions that are truly positive"
+  },
+  {
+    "term": "Recall",
+    "definition": "Share of real positives the model actually finds"
+  },
+  {
+    "term": "F1 score",
+    "definition": "One number that balances precision and recall"
+  },
+  {
+    "term": "ROC AUC",
+    "definition": "Ranking score that does not depend on one cutoff"
+  },
+  {
+    "term": "Confusion matrix",
+    "definition": "Counts of correct and incorrect predictions per class"
+  },
+  {
+    "term": "Decision threshold",
+    "definition": "Score cutoff that turns a probability into a class"
+  },
+  {
+    "term": "Baseline",
+    "definition": "A simple model a new model must beat"
+  },
+  {
+    "term": "Ground truth",
+    "definition": "The real label used to judge a prediction"
+  },
+  {
+    "term": "Inference",
+    "definition": "Use a trained model to score new examples"
+  },
+  {
+    "term": "Model artifact",
+    "definition": "Saved files that can reload a trained model"
+  },
+  {
+    "term": "Prediction instance",
+    "definition": "One item sent in for a score"
+  },
+  {
+    "term": "Replica",
+    "definition": "One running copy of a deployed model"
+  },
+  {
+    "term": "Autoscaling",
+    "definition": "Add or remove replicas as request traffic changes"
+  },
+  {
+    "term": "Canary release",
+    "definition": "Send a small share of traffic to a new version"
+  },
+  {
+    "term": "Champion model",
+    "definition": "The version that currently serves production traffic"
+  },
+  {
+    "term": "Pipeline",
+    "definition": "Ordered steps from raw data to a deployed model"
+  },
+  {
+    "term": "Pipeline component",
+    "definition": "One reusable step with its own inputs and outputs"
+  },
+  {
+    "term": "Pipeline caching",
+    "definition": "Reuse a step result when its inputs did not change"
+  },
+  {
+    "term": "Lineage",
+    "definition": "Record of which data and jobs produced an artifact"
+  },
+  {
+    "term": "GPU",
+    "definition": "Accelerator often used for custom model training"
+  },
+  {
+    "term": "TPU",
+    "definition": "Google chip built for large tensor computation"
+  },
+  {
+    "term": "Spot VM",
+    "definition": "Cheaper machine that Google may interrupt"
+  },
+  {
+    "term": "Checkpoint",
+    "definition": "Saved training progress you can resume from"
+  },
+  {
+    "term": "Distributed training",
+    "definition": "One training job spread across many machines"
+  },
+  {
+    "term": "Forecast horizon",
+    "definition": "How far ahead a forecast is asked to predict"
+  },
+  {
+    "term": "Service account",
+    "definition": "Identity a job uses instead of a person"
+  },
+  {
+    "term": "IAM role",
+    "definition": "A named bundle of permissions"
+  },
+  {
+    "term": "Private endpoint",
+    "definition": "A prediction endpoint kept on your private network"
+  },
+  {
+    "term": "PII",
+    "definition": "Data that can identify a specific person"
+  },
+  {
+    "term": "De-identification",
+    "definition": "Mask or remove data that identifies a person"
+  },
+  {
+    "term": "Retrieval augmented generation",
+    "definition": "Fetch source text then generate an answer from it"
+  },
+  {
+    "term": "Hallucination",
+    "definition": "A fluent answer that is not supported by facts"
+  },
+  {
+    "term": "When to use online prediction",
+    "definition": "An app must score each request immediately"
+  },
+  {
+    "term": "When to use batch prediction",
+    "definition": "A job should score a stored table on a schedule"
+  },
+  {
+    "term": "When to use BigQuery ML",
+    "definition": "Analysts will build models with SQL in BigQuery"
+  },
+  {
+    "term": "When to use AutoML",
+    "definition": "You have labeled data and little modeling code"
+  },
+  {
+    "term": "When to use custom training",
+    "definition": "The training loop has to be your own code"
+  },
+  {
+    "term": "When to use Vertex AI Feature Store",
+    "definition": "Several models must share one feature definition"
+  },
+  {
+    "term": "When to use point in time lookup",
+    "definition": "Each training row needs features from that past moment"
+  },
+  {
+    "term": "When to use a feature view",
+    "definition": "A live request needs the newest feature values fast"
+  },
+  {
+    "term": "When to use Vertex AI Pipelines",
+    "definition": "Prep train evaluate and deploy should be one workflow"
+  },
+  {
+    "term": "When to use Vertex AI Model Registry",
+    "definition": "Every trained version should live in one catalog"
+  },
+  {
+    "term": "When to use Vertex AI Experiments",
+    "definition": "You want to compare metrics across training runs"
+  },
+  {
+    "term": "When to use Vertex ML Metadata",
+    "definition": "You must show which data produced a model"
+  },
+  {
+    "term": "When to use Explainable AI",
+    "definition": "Someone asks why this single prediction was made"
+  },
+  {
+    "term": "When to use XRAI",
+    "definition": "An image explanation should highlight important regions"
+  },
+  {
+    "term": "When to use sampled Shapley",
+    "definition": "A tree model needs an attribution for each feature"
+  },
+  {
+    "term": "When to use integrated gradients",
+    "definition": "A neural net needs attributions from gradients"
+  },
+  {
+    "term": "When to use prediction drift",
+    "definition": "Feature stats in production shifted after launch"
+  },
+  {
+    "term": "When to use training serving skew",
+    "definition": "Serving transforms data differently than training did"
+  },
+  {
+    "term": "When to use Vertex AI Vector Search",
+    "definition": "Find passages whose meaning matches a question"
+  },
+  {
+    "term": "When to use Model Garden",
+    "definition": "Start from a hosted foundation model"
+  },
+  {
+    "term": "When to use grounding",
+    "definition": "Generated answers must stay tied to your documents"
+  },
+  {
+    "term": "When to use provisioned throughput",
+    "definition": "A generative app needs capacity set aside for it"
+  },
+  {
+    "term": "When to use supervised fine tuning",
+    "definition": "You have labeled pairs to adapt a foundation model"
+  },
+  {
+    "term": "When to use Dataflow",
+    "definition": "A huge dataset should be transformed with Apache Beam"
+  },
+  {
+    "term": "When to use Pub/Sub",
+    "definition": "App events should stream in as they happen"
+  },
+  {
+    "term": "When to use Cloud Storage",
+    "definition": "Training files need durable object storage"
+  },
+  {
+    "term": "When to use a chronological split",
+    "definition": "A forecast must not train on rows from the future"
+  },
+  {
+    "term": "When to use AUC PR",
+    "definition": "The positive class is rare so accuracy looks too good"
+  },
+  {
+    "term": "When to use a traffic split",
+    "definition": "Only a fraction of users should hit the new model"
+  },
+  {
+    "term": "When to use continuous training",
+    "definition": "Fresh labels should start another training run"
+  },
+  {
+    "term": "When to use CMEK",
+    "definition": "Rules require encryption keys that you manage"
+  },
+  {
+    "term": "When to use precision",
+    "definition": "Most alerts are false alarms"
+  },
+  {
+    "term": "When to use recall",
+    "definition": "Real cases keep slipping through"
+  },
+  {
+    "term": "When to use TensorFlow Transform",
+    "definition": "Train and serve must apply the same preprocessing"
+  },
+  {
+    "term": "When to use Vertex AI Workbench",
+    "definition": "Prototype in a notebook before you productionize"
+  },
+  {
+    "term": "When to use Vertex AI Vizier",
+    "definition": "Let an optimizer search training settings for you"
+  },
+  {
+    "term": "When to use a checkpoint",
+    "definition": "A cheap machine might be stopped during training"
+  },
+  {
+    "term": "When to use a private endpoint",
+    "definition": "Scores must stay on your private network"
+  },
+  {
+    "term": "When to use de-identification",
+    "definition": "Names and emails must be removed before training"
+  },
+  {
+    "term": "When to use pipeline caching",
+    "definition": "Skip a pipeline step whose inputs are unchanged"
+  },
+  {
+    "term": "Vertex AI",
+    "definition": "Managed platform for the full ML lifecycle"
+  },
+  {
+    "term": "Vertex AI Workbench",
+    "definition": "Managed Jupyter environment for ML development"
+  },
+  {
+    "term": "AutoML",
+    "definition": "Train a model from data with minimal code"
+  },
+  {
+    "term": "Custom training",
+    "definition": "Run your own training code on Vertex AI"
+  },
+  {
+    "term": "BigQuery ML",
+    "definition": "Create and use ML models with SQL"
+  },
+  {
+    "term": "Vertex AI Pipelines",
+    "definition": "Managed service for Kubeflow ML pipelines"
+  },
+  {
+    "term": "Vertex AI Feature Store",
+    "definition": "Managed store for sharing and serving features"
+  },
+  {
+    "term": "Feature view",
+    "definition": "Online serving config for a set of features"
+  },
+  {
+    "term": "Point in time lookup",
+    "definition": "Feature values as of a past event time"
+  },
+  {
+    "term": "Vertex AI Model Registry",
+    "definition": "Catalog of uploaded model versions"
+  },
+  {
+    "term": "Vertex AI Experiments",
+    "definition": "Track parameters metrics and artifacts per run"
+  },
+  {
+    "term": "Vertex ML Metadata",
+    "definition": "Lineage graph of ML artifacts and executions"
+  },
+  {
+    "term": "Model Garden",
+    "definition": "Catalog of Google partner and open models"
+  },
+  {
+    "term": "Vertex AI Vector Search",
+    "definition": "Nearest neighbor search over embedding vectors"
+  },
+  {
+    "term": "Online prediction",
+    "definition": "Low latency inference from a deployed endpoint"
+  },
+  {
+    "term": "Batch prediction",
+    "definition": "Inference job over a stored dataset"
+  },
+  {
+    "term": "Endpoint",
+    "definition": "Deployed resource that serves online predictions"
+  },
+  {
+    "term": "Traffic split",
+    "definition": "Share of requests sent to each deployed model"
+  },
+  {
+    "term": "Training serving skew",
+    "definition": "Mismatch between training data and serving data"
+  },
+  {
+    "term": "Prediction drift",
+    "definition": "Shift in inputs or outputs after deployment"
+  },
+  {
+    "term": "Vertex AI Model Monitoring",
+    "definition": "Alerts on skew and drift for deployed models"
+  },
+  {
+    "term": "Explainable AI",
+    "definition": "Feature attributions that explain a prediction"
+  },
+  {
+    "term": "Integrated gradients",
+    "definition": "Attribution method for differentiable models"
+  },
+  {
+    "term": "Sampled Shapley",
+    "definition": "Attribution method for tree and tabular models"
+  },
+  {
+    "term": "XRAI",
+    "definition": "Region based image attribution method"
+  },
+  {
+    "term": "Vertex AI Vizier",
+    "definition": "Black box optimizer for hyperparameter studies"
+  },
+  {
+    "term": "Worker pool",
+    "definition": "Group of machines with one role in a training job"
+  },
+  {
+    "term": "Reduction server",
+    "definition": "Service that aggregates gradients across workers"
+  },
+  {
+    "term": "Prebuilt container",
+    "definition": "Google image for a supported ML framework"
+  },
+  {
+    "term": "Custom container",
+    "definition": "Your image for training or prediction code"
+  },
+  {
+    "term": "Custom prediction routine",
+    "definition": "Python preprocess and postprocess around a model"
+  },
+  {
+    "term": "TensorFlow Transform",
+    "definition": "Preprocessing applied the same at train and serve"
+  },
+  {
+    "term": "TFX",
+    "definition": "TensorFlow Extended libraries for production pipelines"
+  },
+  {
+    "term": "Cloud Storage",
+    "definition": "Object store for datasets and model artifacts"
+  },
+  {
+    "term": "Dataflow",
+    "definition": "Managed Apache Beam for batch and stream processing"
+  },
+  {
+    "term": "Pub/Sub",
+    "definition": "Messaging service for streaming event ingestion"
+  },
+  {
+    "term": "Artifact Registry",
+    "definition": "Store for container images and ML packages"
+  },
+  {
+    "term": "CMEK",
+    "definition": "Encryption keys you control in Cloud KMS"
+  },
+  {
+    "term": "VPC Service Controls",
+    "definition": "Security perimeter that limits data exfiltration"
+  },
+  {
+    "term": "Training service account",
+    "definition": "Identity a custom training job runs as"
+  },
+  {
+    "term": "Data split column",
+    "definition": "Column that assigns rows to train validate or test"
+  },
+  {
+    "term": "AUC PR",
+    "definition": "Ranking metric suited to rare positive classes"
+  },
+  {
+    "term": "Log loss",
+    "definition": "Score that penalizes confident wrong class probabilities"
+  },
+  {
+    "term": "RMSE",
+    "definition": "Square root of average squared regression error"
+  },
+  {
+    "term": "Transfer learning",
+    "definition": "Adapt a pretrained model to a new task"
+  },
+  {
+    "term": "Supervised fine tuning",
+    "definition": "Further train a foundation model on labeled pairs"
+  },
+  {
+    "term": "Grounding",
+    "definition": "Tie generative answers to retrieved source data"
+  },
+  {
+    "term": "Provisioned throughput",
+    "definition": "Reserved capacity for generative model requests"
+  },
+  {
+    "term": "Continuous training",
+    "definition": "Retrain when new data or monitoring triggers it"
+  },
+  {
+    "term": "Early stopping",
+    "definition": "Halt training or a trial when gains flatten"
+  }
+]

@@ -98,7 +98,18 @@ export class DeckParseError extends Error {}
 export function parseDeck(raw: unknown): Card[] {
   if (!Array.isArray(raw)) throw new DeckParseError("Cards file must export an array...");
   if (raw.length === 0) throw new DeckParseError("Cards file exported an empty array.");
-  return raw.map((entry, index) => parseCard(entry, index + 1));
+  const cards = raw.map((entry, index) => parseCard(entry, index + 1));
+  assertUniqueCards(cards);
+  return cards;
+}
+
+export function assertUniqueCards(cards: Card[]): void {
+  const seen = new Set<string>();
+  cards.forEach((card, index) => {
+    const key = cardKey(card);
+    if (seen.has(key)) throw new DeckParseError(`Card #${index + 1} repeats an earlier term and definition.`);
+    seen.add(key);
+  });
 }
 
 function parseCard(entry: unknown, number: number): Card {
@@ -204,23 +215,68 @@ export class Session {
 
   setMode(mode: string): void {
     if (mode !== STANDARD && mode !== CHUNKING && mode !== WEIGHTED) throw new Error(mode);
+    if (mode === this.mode) return;
+    const current = this.currentIndex();
     this.mode = mode;
-    this.restart();
+    if (mode === WEIGHTED) {
+      this.weightedIndex = current;
+      return;
+    }
+    if (mode === CHUNKING) this.mastered = new Set();
+    this.pin(current);
   }
 
   setChunkSize(size: number): void {
+    const current = this.currentIndex();
     this.chunkSize = Math.max(1, Math.floor(size));
-    if (this.mode === CHUNKING) this.restart();
+    if (this.mode === CHUNKING) this.pin(current);
   }
 
   setStartWithTerm(startWithTerm: boolean): void {
+    if (this.startWithTerm === startWithTerm) return;
     this.startWithTerm = startWithTerm;
-    this.restart();
+    this.checked = false;
+    this.wasCorrect = false;
+    this.correctionRequired = false;
   }
 
   setShuffle(shuffle: boolean): void {
+    if (this.shuffle === shuffle) return;
+    const current = this.currentIndex();
     this.shuffle = shuffle;
-    this.restart();
+    if (this.mode === WEIGHTED) return;
+    if (!shuffle) {
+      this.order = this.cards.map((_, index) => index);
+    } else {
+      const pos = Math.max(0, this.order.indexOf(current));
+      const others = this.order.filter((item) => item !== current);
+      this.rng.shuffle(others);
+      others.splice(pos, 0, current);
+      this.order = others;
+    }
+    this.pin(current);
+  }
+
+  private pin(current: number): void {
+    const pos = Math.max(0, this.order.indexOf(current));
+    if (this.mode !== CHUNKING) {
+      this.cursor = pos;
+      return;
+    }
+    if (pos < this.chunkStart || pos >= this.chunkStart + this.chunkSize) {
+      const aligned = Math.floor(pos / this.chunkSize) * this.chunkSize;
+      const maxStart = Math.max(0, this.order.length - this.chunkSize);
+      this.chunkStart = Math.min(aligned, maxStart);
+      if (pos < this.chunkStart || pos >= this.chunkStart + this.chunkSize) {
+        this.chunkStart = Math.max(0, Math.min(pos, this.order.length - 1));
+      }
+    }
+    const window = this.chunk();
+    const cursor = window.indexOf(current);
+    this.cursor = cursor >= 0 ? cursor : 0;
+    for (const item of this.mastered) {
+      if (!window.includes(item)) this.mastered.delete(item);
+    }
   }
 
   currentIndex(): number {

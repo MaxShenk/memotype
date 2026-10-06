@@ -1,0 +1,578 @@
+[
+  {
+    "term": "Data lake",
+    "definition": "Cheap storage of files in open formats"
+  },
+  {
+    "term": "Data warehouse",
+    "definition": "Curated tables built for fast SQL analytics"
+  },
+  {
+    "term": "ETL",
+    "definition": "Transform data before loading it into the destination"
+  },
+  {
+    "term": "ELT",
+    "definition": "Load raw data first and transform it afterward"
+  },
+  {
+    "term": "Batch",
+    "definition": "Process a finished set of data on a schedule"
+  },
+  {
+    "term": "Streaming",
+    "definition": "Process events continuously as they arrive"
+  },
+  {
+    "term": "Incremental load",
+    "definition": "Read only data that is new or changed"
+  },
+  {
+    "term": "Idempotent load",
+    "definition": "Running the same load again does not duplicate rows"
+  },
+  {
+    "term": "Table schema",
+    "definition": "The column names and data types of a table"
+  },
+  {
+    "term": "Parquet",
+    "definition": "Columnar file format that Delta tables store"
+  },
+  {
+    "term": "ACID",
+    "definition": "Rules that keep overlapping writes consistent"
+  },
+  {
+    "term": "Transaction",
+    "definition": "One all or nothing change to a table"
+  },
+  {
+    "term": "Commit",
+    "definition": "A successful change recorded in the table log"
+  },
+  {
+    "term": "Snapshot",
+    "definition": "The table contents after a chosen commit"
+  },
+  {
+    "term": "Table",
+    "definition": "Named rows and columns you query with SQL"
+  },
+  {
+    "term": "View",
+    "definition": "A saved query over other tables"
+  },
+  {
+    "term": "Row",
+    "definition": "One record inside a table"
+  },
+  {
+    "term": "Column",
+    "definition": "One named field on each row"
+  },
+  {
+    "term": "Apache Spark",
+    "definition": "Engine that processes data across many machines"
+  },
+  {
+    "term": "DataFrame",
+    "definition": "A distributed table with named columns"
+  },
+  {
+    "term": "Lazy evaluation",
+    "definition": "Spark plans work and runs it when a result is needed"
+  },
+  {
+    "term": "Transformation",
+    "definition": "A step that describes a new dataset and does not run yet"
+  },
+  {
+    "term": "Action",
+    "definition": "An operation that forces Spark to compute a result"
+  },
+  {
+    "term": "Driver",
+    "definition": "Process that plans work and coordinates the cluster"
+  },
+  {
+    "term": "Executor",
+    "definition": "Worker process that runs tasks on the cluster"
+  },
+  {
+    "term": "Shuffle",
+    "definition": "Move rows between machines so they can be grouped"
+  },
+  {
+    "term": "Spark partition",
+    "definition": "A slice of data handled by one task"
+  },
+  {
+    "term": "Cluster",
+    "definition": "A group of machines that run Spark together"
+  },
+  {
+    "term": "Notebook",
+    "definition": "An interactive document of code and results"
+  },
+  {
+    "term": "Job",
+    "definition": "A production run of one or more tasks"
+  },
+  {
+    "term": "Task",
+    "definition": "A single step inside a workflow"
+  },
+  {
+    "term": "Small file problem",
+    "definition": "Too many tiny files that make queries slow"
+  },
+  {
+    "term": "Data skipping",
+    "definition": "Ignore files that cannot match a filter"
+  },
+  {
+    "term": "Partition column",
+    "definition": "A column that stores rows in separate folders"
+  },
+  {
+    "term": "Upsert",
+    "definition": "Insert a key or update it when that key exists"
+  },
+  {
+    "term": "SCD type 1",
+    "definition": "Overwrite a dimension row with the newest values"
+  },
+  {
+    "term": "SCD type 2",
+    "definition": "Keep history by adding a row when values change"
+  },
+  {
+    "term": "Catalog",
+    "definition": "Top name that groups schemas in Unity Catalog"
+  },
+  {
+    "term": "Schema namespace",
+    "definition": "A group of tables inside a catalog"
+  },
+  {
+    "term": "Grant",
+    "definition": "A permission given to an identity on an object"
+  },
+  {
+    "term": "Service principal",
+    "definition": "An identity for jobs and tools rather than a person"
+  },
+  {
+    "term": "Hive metastore",
+    "definition": "Older workspace catalog replaced by Unity Catalog"
+  },
+  {
+    "term": "Row filter",
+    "definition": "A rule that hides rows from some users"
+  },
+  {
+    "term": "Column mask",
+    "definition": "A rule that hides sensitive values in a column"
+  },
+  {
+    "term": "DBFS",
+    "definition": "Legacy file interface mostly replaced by volumes"
+  },
+  {
+    "term": "Raw data",
+    "definition": "Source data kept before cleaning"
+  },
+  {
+    "term": "Conformed data",
+    "definition": "Cleaned data that shares keys and definitions"
+  },
+  {
+    "term": "Data quality rule",
+    "definition": "A check that incoming rows must pass"
+  },
+  {
+    "term": "Quarantine",
+    "definition": "Hold failing rows aside instead of mixing them in"
+  },
+  {
+    "term": "Warn on violation",
+    "definition": "Keep bad rows and record that a rule failed"
+  },
+  {
+    "term": "Drop on violation",
+    "definition": "Remove rows that fail a rule and continue"
+  },
+  {
+    "term": "Fail on violation",
+    "definition": "Stop the update when a quality rule fails"
+  },
+  {
+    "term": "Checkpoint",
+    "definition": "Saved stream progress so a restart can continue"
+  },
+  {
+    "term": "File arrival trigger",
+    "definition": "Start work when new files appear in storage"
+  },
+  {
+    "term": "When to use a lakehouse",
+    "definition": "You want warehouse SQL on low cost files"
+  },
+  {
+    "term": "When to use Delta Lake",
+    "definition": "Cloud files need safe overlapping writes"
+  },
+  {
+    "term": "When to use medallion architecture",
+    "definition": "Stage data from raw to cleaned to business ready"
+  },
+  {
+    "term": "When to use a bronze layer",
+    "definition": "Keep source data close to how it arrived"
+  },
+  {
+    "term": "When to use a silver layer",
+    "definition": "Clean records and align them to shared keys"
+  },
+  {
+    "term": "When to use a gold layer",
+    "definition": "Publish tables shaped for dashboards"
+  },
+  {
+    "term": "When to use Unity Catalog",
+    "definition": "Govern data and AI assets in one catalog"
+  },
+  {
+    "term": "When to use a three level namespace",
+    "definition": "A table name needs catalog schema and table"
+  },
+  {
+    "term": "When to use a metastore",
+    "definition": "Store Unity Catalog metadata for a region"
+  },
+  {
+    "term": "When to use a managed table",
+    "definition": "The catalog should own the table files"
+  },
+  {
+    "term": "When to use an external table",
+    "definition": "Register a table over files you already store"
+  },
+  {
+    "term": "When to use a volume",
+    "definition": "Govern images and other files that are not tables"
+  },
+  {
+    "term": "When to use an external location",
+    "definition": "Let the catalog read a specific cloud path"
+  },
+  {
+    "term": "When to use a storage credential",
+    "definition": "Authenticate to that cloud path with a cloud identity"
+  },
+  {
+    "term": "When to use all purpose compute",
+    "definition": "Explore data interactively in notebooks"
+  },
+  {
+    "term": "When to use job compute",
+    "definition": "Run production work and then shut the machines down"
+  },
+  {
+    "term": "When to use a SQL warehouse",
+    "definition": "Analysts need SQL without managing a Spark cluster"
+  },
+  {
+    "term": "When to use serverless compute",
+    "definition": "Let Databricks size and manage the compute"
+  },
+  {
+    "term": "When to use Photon",
+    "definition": "Speed up SQL with a vectorized engine"
+  },
+  {
+    "term": "When to use Databricks Runtime",
+    "definition": "Use the Spark runtime that includes Delta"
+  },
+  {
+    "term": "When to use time travel",
+    "definition": "Read a table as it looked at an older time"
+  },
+  {
+    "term": "When to use the transaction log",
+    "definition": "See every committed change to a table"
+  },
+  {
+    "term": "When to use OPTIMIZE",
+    "definition": "Too many tiny files are slowing queries"
+  },
+  {
+    "term": "When to use ZORDER",
+    "definition": "Colocate related values so filters skip files"
+  },
+  {
+    "term": "When to use liquid clustering",
+    "definition": "Cluster rows without fixed partition folders"
+  },
+  {
+    "term": "When to use VACUUM",
+    "definition": "Delete data files that no snapshot still needs"
+  },
+  {
+    "term": "When to use MERGE",
+    "definition": "Insert new keys and update keys that exist"
+  },
+  {
+    "term": "When to use change data feed",
+    "definition": "Downstream jobs need only the rows that changed"
+  },
+  {
+    "term": "When to use schema evolution",
+    "definition": "Incoming files added columns you want to keep"
+  },
+  {
+    "term": "When to use Auto Loader",
+    "definition": "Ingest new files from cloud storage as they land"
+  },
+  {
+    "term": "When to use Structured Streaming",
+    "definition": "Process a continuous stream with Spark"
+  },
+  {
+    "term": "When to use Lakeflow declarative pipelines",
+    "definition": "Declare tables and quality checks as a pipeline"
+  },
+  {
+    "term": "When to use expectations",
+    "definition": "Define what happens when rows fail a check"
+  },
+  {
+    "term": "When to use workflows",
+    "definition": "Schedule tasks that depend on earlier tasks"
+  },
+  {
+    "term": "When to use MLflow",
+    "definition": "Track training runs and registered model versions"
+  },
+  {
+    "term": "When to use Model Serving",
+    "definition": "Serve a model for low latency requests"
+  },
+  {
+    "term": "When to use Delta Sharing",
+    "definition": "A partner should query your live tables"
+  },
+  {
+    "term": "When to use an idempotent load",
+    "definition": "A repeated load must not double the same rows"
+  },
+  {
+    "term": "When to use a checkpoint",
+    "definition": "A stream should resume where it left off"
+  },
+  {
+    "term": "When to use fail on violation",
+    "definition": "Bad rows should stop the pipeline"
+  },
+  {
+    "term": "When to use warn on violation",
+    "definition": "Keep bad rows but record the rule failure"
+  },
+  {
+    "term": "When to use drop on violation",
+    "definition": "Drop bad rows and let the pipeline continue"
+  },
+  {
+    "term": "When to use SCD type 1",
+    "definition": "Store only the latest address for each customer"
+  },
+  {
+    "term": "When to use SCD type 2",
+    "definition": "Keep every past address for each customer"
+  },
+  {
+    "term": "When to use a column mask",
+    "definition": "Hide salary values from most users"
+  },
+  {
+    "term": "When to use a row filter",
+    "definition": "Each user should see only their own region"
+  },
+  {
+    "term": "When to use a DBU",
+    "definition": "Meter how much Databricks compute you used"
+  },
+  {
+    "term": "When to use the control plane",
+    "definition": "The web app and APIs that Databricks hosts"
+  },
+  {
+    "term": "When to use the compute plane",
+    "definition": "The machines that actually run your code"
+  },
+  {
+    "term": "When to use a file arrival trigger",
+    "definition": "Start a job when new files show up"
+  },
+  {
+    "term": "Lakehouse",
+    "definition": "Data architecture that unifies lakes and warehouses"
+  },
+  {
+    "term": "Delta Lake",
+    "definition": "Storage layer that adds transactions to data lakes"
+  },
+  {
+    "term": "Medallion architecture",
+    "definition": "Bronze silver and gold refinement layers"
+  },
+  {
+    "term": "Bronze layer",
+    "definition": "Raw ingested data kept near the source form"
+  },
+  {
+    "term": "Silver layer",
+    "definition": "Cleaned validated and conformed tables"
+  },
+  {
+    "term": "Gold layer",
+    "definition": "Aggregated tables shaped for business use"
+  },
+  {
+    "term": "Unity Catalog",
+    "definition": "Governance catalog for data and AI assets"
+  },
+  {
+    "term": "Three level namespace",
+    "definition": "Names objects as catalog schema and table"
+  },
+  {
+    "term": "Metastore",
+    "definition": "Regional top level container for Unity Catalog"
+  },
+  {
+    "term": "Managed table",
+    "definition": "Delta table whose files the catalog owns"
+  },
+  {
+    "term": "External table",
+    "definition": "Table registered over files in your own path"
+  },
+  {
+    "term": "Volume",
+    "definition": "Governed location for files that are not tables"
+  },
+  {
+    "term": "External location",
+    "definition": "Cloud storage path Unity Catalog is allowed to use"
+  },
+  {
+    "term": "Storage credential",
+    "definition": "Cloud identity used to access external storage"
+  },
+  {
+    "term": "Control plane",
+    "definition": "Databricks hosted layer for the web app and APIs"
+  },
+  {
+    "term": "Compute plane",
+    "definition": "Layer where clusters and warehouses run your code"
+  },
+  {
+    "term": "All purpose compute",
+    "definition": "Long lived cluster for interactive notebooks"
+  },
+  {
+    "term": "Job compute",
+    "definition": "Cluster that exists only for a workflow run"
+  },
+  {
+    "term": "Databricks Runtime",
+    "definition": "Optimized Spark runtime shipped with Delta"
+  },
+  {
+    "term": "Photon",
+    "definition": "Native vectorized engine for SQL and DataFrame queries"
+  },
+  {
+    "term": "SQL warehouse",
+    "definition": "Compute endpoint for Databricks SQL"
+  },
+  {
+    "term": "Serverless compute",
+    "definition": "Capacity Databricks provisions and manages for you"
+  },
+  {
+    "term": "DBU",
+    "definition": "Billing unit for Databricks compute consumption"
+  },
+  {
+    "term": "Transaction log",
+    "definition": "Commit history stored beside a Delta table"
+  },
+  {
+    "term": "Time travel",
+    "definition": "Read a Delta table at an older version or time"
+  },
+  {
+    "term": "OPTIMIZE",
+    "definition": "Rewrite small Delta files into larger files"
+  },
+  {
+    "term": "ZORDER",
+    "definition": "Cluster data on columns to improve file skipping"
+  },
+  {
+    "term": "Liquid clustering",
+    "definition": "Flexible clustering that can replace partitions"
+  },
+  {
+    "term": "VACUUM",
+    "definition": "Delete Delta files that are no longer referenced"
+  },
+  {
+    "term": "MERGE",
+    "definition": "Insert update or delete rows by a match condition"
+  },
+  {
+    "term": "Change data feed",
+    "definition": "Record of row inserts updates and deletes"
+  },
+  {
+    "term": "Schema evolution",
+    "definition": "Accept new columns during append or merge"
+  },
+  {
+    "term": "Auto Loader",
+    "definition": "Incremental file ingestion from cloud storage"
+  },
+  {
+    "term": "Structured Streaming",
+    "definition": "Spark engine for incremental stream processing"
+  },
+  {
+    "term": "Lakeflow declarative pipelines",
+    "definition": "Declarative ETL also called Delta Live Tables"
+  },
+  {
+    "term": "Expectations",
+    "definition": "Quality rules that warn drop or fail bad rows"
+  },
+  {
+    "term": "Workflows",
+    "definition": "Scheduled jobs built from dependent tasks"
+  },
+  {
+    "term": "MLflow",
+    "definition": "Tooling to track runs and manage model versions"
+  },
+  {
+    "term": "Model Serving",
+    "definition": "Real time endpoint that hosts a registered model"
+  },
+  {
+    "term": "Delta Sharing",
+    "definition": "Open protocol for sharing live data with recipients"
+  }
+]

@@ -1,6 +1,6 @@
 import capitals from "../../../assets/decks/country-capitals.json";
 import { normalizePassage } from "./engine";
-import { type Card, cardKey, parseDeck } from "./flash";
+import { type Card, assertUniqueCards, cardKey, parseDeck } from "./flash";
 import { BUILTIN_DECK_ID, type DeckRow, type ScoreRow, type SourceRow, sanitizeName } from "./model";
 
 const KEY = "memotype.local.v1";
@@ -113,16 +113,55 @@ export function localListDecks(): DeckRow[] {
   return [builtin, ...mine];
 }
 
-export function localImportDeck(name: string, raw: unknown): string {
+export function localImportDeck(name: string, raw: unknown): { id: string; updated: boolean } {
   const cards = parseDeck(raw);
   const store = read();
+  const clean = sanitizeName(name);
+  const existing = store.decks.find((row) => row.name.toLowerCase() === clean.toLowerCase());
+  if (existing) {
+    replaceStoredCards(store, existing.id, cards);
+    write(store);
+    return { id: existing.id, updated: true };
+  }
   const deckId = id();
-  store.decks.push({ id: deckId, name: sanitizeName(name), builtin_key: null, user_id: "local" });
+  store.decks.push({ id: deckId, name: clean, builtin_key: null, user_id: "local" });
   cards.forEach((card, position) => {
     store.cards.push({ ...card, deck_id: deckId, position, card_key: cardKey(card) });
   });
   write(store);
-  return deckId;
+  return { id: deckId, updated: false };
+}
+
+export function localSaveDeck(deckId: string, name: string, cards: Card[]): void {
+  if (deckId === BUILTIN_DECK_ID) throw new Error("Built-in decks stay as they are.");
+  if (cards.length === 0) throw new Error("A deck needs at least one card.");
+  assertUniqueCards(cards);
+  const store = read();
+  const deck = store.decks.find((row) => row.id === deckId);
+  if (!deck) throw new Error("That deck is gone.");
+  const clean = sanitizeName(name);
+  if (store.decks.some((row) => row.id !== deckId && row.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error("A deck with that name already exists.");
+  }
+  deck.name = clean;
+  replaceStoredCards(store, deckId, cards);
+  write(store);
+}
+
+export function localReplaceCards(deckId: string, raw: unknown): void {
+  if (deckId === BUILTIN_DECK_ID) throw new Error("Built-in decks stay as they are.");
+  const cards = parseDeck(raw);
+  const store = read();
+  if (!store.decks.some((row) => row.id === deckId)) throw new Error("That deck is gone.");
+  replaceStoredCards(store, deckId, cards);
+  write(store);
+}
+
+function replaceStoredCards(store: Store, deckId: string, cards: Card[]): void {
+  store.cards = store.cards.filter((row) => row.deck_id !== deckId);
+  cards.forEach((card, position) => {
+    store.cards.push({ ...card, deck_id: deckId, position, card_key: cardKey(card) });
+  });
 }
 
 export function localDeleteDeck(deckId: string): void {

@@ -6,8 +6,11 @@ import {
   listDecks,
   loadCards,
   loadStats,
+  replaceDeck,
   resetStats,
+  saveDeck,
   saveStat,
+  sanitizeName,
   type DeckRow,
 } from "../lib/db";
 import {
@@ -70,6 +73,20 @@ export function Flash() {
         <Decks
           decks={decks}
           onOpen={(row) => open(row).catch((reason: Error) => setError(reason.message))}
+          onCardsChanged={async (id) => {
+            await refresh();
+            if (deck?.id !== id) return;
+            const row = (await listDecks()).find((item) => item.id === id);
+            const loaded = await loadCards(id);
+            if (!row || loaded.length === 0) return;
+            const stats = await loadStats(id);
+            setDeck(row);
+            setCards(loaded);
+            setProgress(new MemoryProgress(row.id, stats, (key, next) => {
+              saveStat(row.id, key, next).catch((reason: Error) => setError(reason.message));
+            }));
+            setSessionKey((value) => value + 1);
+          }}
           onImported={async (id) => {
             await refresh();
             const next = (await listDecks()).find((row) => row.id === id);
@@ -127,6 +144,7 @@ function Decks({
   decks,
   onOpen,
   onImported,
+  onCardsChanged,
   onDelete,
   onReset,
   onCapitals,
@@ -134,11 +152,48 @@ function Decks({
   decks: DeckRow[];
   onOpen: (row: DeckRow) => void;
   onImported: (id: string) => Promise<void>;
+  onCardsChanged: (id: string) => Promise<void>;
   onDelete: (row: DeckRow) => Promise<void>;
   onReset: (row: DeckRow) => Promise<void>;
   onCapitals: () => void;
 }) {
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState<DeckRow | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftCards, setDraftCards] = useState<Card[]>([]);
+
+  async function readJson(file: File): Promise<unknown> {
+    return JSON.parse(await file.text()) as unknown;
+  }
+
+  function startEdit(row: DeckRow) {
+    loadCards(row.id).then((loaded) => {
+      setEditing(row);
+      setDraftName(row.name);
+      setDraftCards(loaded.map((card) => ({ ...card })));
+      setMessage("");
+    }).catch((reason: Error) => setMessage(reason.message));
+  }
+
+  if (editing) {
+    return (
+      <DeckEditor
+        name={draftName}
+        cards={draftCards}
+        onName={setDraftName}
+        onCards={setDraftCards}
+        onCancel={() => setEditing(null)}
+        onSave={() => {
+          saveDeck(editing.id, draftName, draftCards).then(async () => {
+            setMessage(`Saved ${sanitizeName(draftName)}`);
+            setEditing(null);
+            await onCardsChanged(editing.id);
+          }).catch((reason: Error) => setMessage(reason.message));
+        }}
+        message={message}
+      />
+    );
+  }
 
   return (
     <section className="list">
@@ -154,11 +209,13 @@ function Decks({
             const file = event.target.files?.[0];
             event.target.value = "";
             if (!file) return;
-            file.text().then(async (text) => {
-              const raw = JSON.parse(text) as unknown;
-              const id = await importDeck(file.name.replace(/\.json$/i, ""), raw);
-              setMessage(`Loaded ${file.name}`);
-              await onImported(id);
+            const clean = sanitizeName(file.name.replace(/\.json$/i, ""));
+            const match = decks.find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
+            if (match && !window.confirm(`Replace the cards in ${match.name}?`)) return;
+            readJson(file).then(async (raw) => {
+              const result = await importDeck(clean, raw);
+              setMessage(result.updated ? `Updated ${clean}` : `Loaded ${clean}`);
+              await onImported(result.id);
             }).catch((reason: Error) => setMessage(reason.message));
           }}
         />
@@ -170,11 +227,82 @@ function Decks({
           <span className="faint">{row.builtin_key ? "Built-in" : "Your deck"}</span>
           <div className="actions">
             <button className="primary" onClick={() => onOpen(row)}>Quiz</button>
+            {!row.builtin_key && <button onClick={() => startEdit(row)}>Edit</button>}
+            {!row.builtin_key && (
+              <label className="file-button">
+                Update from JSON
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    if (!window.confirm(`Replace the cards in ${row.name}?`)) return;
+                    readJson(file).then(async (raw) => {
+                      await replaceDeck(row.id, raw);
+                      setMessage(`Updated ${row.name}`);
+                      await onCardsChanged(row.id);
+                    }).catch((reason: Error) => setMessage(reason.message));
+                  }}
+                />
+              </label>
+            )}
             <button onClick={() => onReset(row).catch((reason: Error) => setMessage(reason.message))}>Reset progress</button>
             {!row.builtin_key && <button className="bad" onClick={() => onDelete(row).catch((reason: Error) => setMessage(reason.message))}>Delete</button>}
           </div>
         </article>
       ))}
+    </section>
+  );
+}
+
+function DeckEditor({
+  name,
+  cards,
+  message,
+  onName,
+  onCards,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  cards: Card[];
+  message: string;
+  onName: (name: string) => void;
+  onCards: (cards: Card[]) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  function update(index: number, patch: Partial<Card>) {
+    onCards(cards.map((card, item) => (item === index ? { ...card, ...patch } : card)));
+  }
+
+  return (
+    <section className="list deck-editor">
+      <label>
+        Deck name
+        <input value={name} onChange={(event) => onName(event.target.value)} />
+      </label>
+      {cards.map((card, index) => (
+        <article className="card item" key={index}>
+          <label>
+            Term
+            <input value={card.term} onChange={(event) => update(index, { term: event.target.value })} />
+          </label>
+          <label>
+            Definition
+            <textarea value={card.definition} onChange={(event) => update(index, { definition: event.target.value })} />
+          </label>
+          <button className="bad" onClick={() => onCards(cards.filter((_, item) => item !== index))}>Remove card</button>
+        </article>
+      ))}
+      <div className="actions">
+        <button onClick={() => onCards([...cards, { term: "", definition: "", image: "" }])}>Add card</button>
+        <button className="primary" onClick={onSave}>Save</button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+      {message && <p className="bad">{message}</p>}
     </section>
   );
 }
@@ -187,6 +315,7 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
   const [sticky, setSticky] = useState(false);
   const [notice, setNotice] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const focusAnswer = useRef(false);
 
   if (deck && progress && cards.length && sessionRef.current?.deckId !== deck.id) {
     sessionRef.current = new Session(deck.id, cards, progress);
@@ -196,6 +325,14 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
   useEffect(() => () => {
     if (timer.current) window.clearTimeout(timer.current);
   }, []);
+
+  useEffect(() => {
+    if (!focusAnswer.current) return;
+    const field = inputRef.current;
+    if (!field || field.disabled || field.readOnly) return;
+    focusAnswer.current = false;
+    field.focus();
+  }, [tick]);
 
   function bump() {
     setTick((value) => value + 1);
@@ -221,8 +358,8 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
         session.advance("");
         setAnswer("");
         setSticky(true);
+        focusAnswer.current = true;
         bump();
-        inputRef.current?.focus();
       }, 350);
     } else {
       cancelAdvance();
@@ -243,8 +380,8 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
     setSticky(false);
     setNotice("");
     setAnswer("");
+    focusAnswer.current = true;
     bump();
-    inputRef.current?.focus();
   }
 
   const finish = session.mode === STANDARD && session.cursor >= session.order.length - 1;
@@ -271,8 +408,6 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
             onClick={() => {
               cancelAdvance();
               session.setMode(value);
-              setAnswer("");
-              setSticky(false);
               bump();
             }}
           >
@@ -291,15 +426,14 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
               if (!Number.isFinite(size) || size < 1) return;
               cancelAdvance();
               session.setChunkSize(size);
-              setAnswer("");
               bump();
             }}
           />
         </label>
-        <button onClick={() => { cancelAdvance(); session.setStartWithTerm(!session.startWithTerm); setAnswer(""); setSticky(false); bump(); }}>
+        <button onClick={() => { cancelAdvance(); session.setStartWithTerm(!session.startWithTerm); setAnswer(""); setSticky(false); setNotice(""); bump(); }}>
           {session.startWithTerm ? "Term → definition" : "Definition → term"}
         </button>
-        <button onClick={() => { cancelAdvance(); session.setShuffle(!session.shuffle); setAnswer(""); setSticky(false); bump(); }}>
+        <button onClick={() => { cancelAdvance(); session.setShuffle(!session.shuffle); bump(); }}>
           {session.shuffle ? "Shuffle on" : "Shuffle off"}
         </button>
         <button onClick={() => { cancelAdvance(); session.restart(); setAnswer(""); setSticky(false); bump(); }}>Restart</button>
@@ -325,7 +459,7 @@ function Quiz({ deck, cards, progress }: { deck: DeckRow | null; cards: Card[]; 
             autoCorrect="off"
             spellCheck={false}
             autoComplete="off"
-            disabled={session.checked && session.wasCorrect}
+            readOnly={session.checked && session.wasCorrect}
             onChange={(event) => setAnswer(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
