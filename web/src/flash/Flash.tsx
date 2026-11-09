@@ -34,8 +34,9 @@ import {
   saveGlobalPractice,
   savePlace,
 } from "../lib/prefs";
+import { DictionaryDeck } from "./Dictionary";
 
-type Page = "quiz" | "decks" | "progress" | "import";
+type Page = "quiz" | "decks" | "progress" | "import" | "dictionary";
 
 const SAMPLE_DECK = `[
   {
@@ -145,11 +146,20 @@ export function Flash() {
               <span className="crumb-current">Import</span>
             </>
           )}
+          {page === "dictionary" && (
+            <>
+              <span className="crumb-sep">/</span>
+              <span className="crumb-current">Dictionary</span>
+            </>
+          )}
         </div>
         {(page === "decks") && (
           <div className="crumb-pin">
             <button type="button" className="icon-button" aria-label="Progress" onClick={showProgress}>
               <PodiumIcon />
+            </button>
+            <button type="button" className="icon-button" aria-label="Create a deck from the dictionary" onClick={() => { setBackTo("decks"); setPage("dictionary"); }}>
+              <BookIcon />
             </button>
             <button type="button" className="icon-button" aria-label="Import a JSON deck" onClick={() => { setBackTo("decks"); setPage("import"); }}>
               <UploadIcon />
@@ -208,6 +218,16 @@ export function Flash() {
           }}
         />
       )}
+      {page === "dictionary" && (
+        <DictionaryDeck
+          decks={decks}
+          onCreated={async (id) => {
+            await refresh();
+            const next = (await listDecks()).find((row) => row.id === id);
+            if (next) await open(next);
+          }}
+        />
+      )}
       {page === "quiz" && <Quiz key={`${deck?.id ?? "none"}-${sessionKey}`} deck={deck} cards={cards} progress={progress} launch={launch} onProgress={showProgress} />}
       {page === "progress" && (
         <Progress
@@ -258,6 +278,16 @@ function PodiumIcon() {
       <text x="5.5" y="20" textAnchor="middle">2</text>
       <text x="18" y="15" textAnchor="middle">1</text>
       <text x="30.5" y="21.5" textAnchor="middle">3</text>
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 6.2v13" />
+      <path d="M12 6.2C10 4.8 7.6 4.4 4.5 4.7v13c3.1-.3 5.5.1 7.5 1.5" />
+      <path d="M12 6.2c2-1.4 4.4-1.8 7.5-1.5v13c-3.1-.3-5.5.1-7.5 1.5" />
     </svg>
   );
 }
@@ -379,7 +409,7 @@ function Decks({
   return (
     <section className="list">
       {message && <p className="muted">{message}</p>}
-      {decks.length === 0 && <p className="muted">No decks yet. Use the upload button to import a JSON file.</p>}
+      {decks.length === 0 && <p className="muted">No decks yet. Create one from the dictionary, or import a JSON file.</p>}
       {decks.map((row) => {
         const place = loadPlace(row.id);
         return (

@@ -792,6 +792,34 @@ label { display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; col
 .import-screen h2 { margin: 0 0 8px; font-size: 1.15rem; }
 .import-screen p { margin: 0 0 12px; }
 
+.band-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.band-row button { flex: 1 1 6rem; }
+.band-row button[aria-pressed="true"] {
+  background: #e8f0fe;
+  border-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 650;
+}
+
+.freq-field { margin-bottom: 14px; }
+
+.freq-readout {
+  color: #122033;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+input[type="range"] {
+  padding: 0;
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  accent-color: #2563eb;
+}
+
+.dict-note { font-size: 0.85rem; }
+.dict-note a { color: #2563eb; }
+
 .snippet {
   margin: 0 0 12px;
   padding: 12px;

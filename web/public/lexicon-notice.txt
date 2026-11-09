@@ -1,0 +1,16 @@
+English flashcard dictionary
+
+Definitions are shortened from WordNet 3.0.
+WordNet 3.0 Copyright 2006 by Princeton University. All rights reserved.
+
+Princeton University makes this database available for any purpose, without fee, provided this notice stays with it. The database is provided "as is." Princeton University makes no representations or warranties of merchantability or fitness for any particular purpose, and does not warrant that use of the database will not infringe third-party rights. The name of Princeton University may not be used in advertising or publicity for this database. Title to the copyright stays with Princeton University.
+
+https://wordnet.princeton.edu/license-and-commercial-use
+
+How common each word is comes from wordfreq (Robyn Speer), whose frequency data may be redistributed under the Creative Commons Attribution-ShareAlike 4.0 license.
+
+https://creativecommons.org/licenses/by-sa/4.0/
+
+wordfreq combines, among other sources, Google Books Ngrams (https://books.google.com/ngrams), Wikipedia, OpenSubtitles, ParaCrawl, the Leeds Internet Corpus, and the SUBTLEX word lists by Marc Brysbaert and colleagues. SUBTLEX is free to use; credit the SUBTLEX authors when you reuse these frequencies.
+
+A Zipf score z means the word occurs about 10^z times per billion words. This app shows that as a share of English: 10^(z - 3) times per million words, which is the same number divided by 10,000 when written as a percent.
