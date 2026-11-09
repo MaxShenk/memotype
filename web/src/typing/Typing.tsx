@@ -532,6 +532,21 @@ function Game({
   }, [settingsOpen, pagerOpen]);
 
   useEffect(() => {
+    if (engine.mode !== RECALL || engine.finished) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.repeat || event.altKey || event.shiftKey) return;
+      if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
+      event.preventDefault();
+      if (!engine.reveal(Date.now() / 1000)) return;
+      setSettingsOpen(false);
+      bump(false);
+      inputRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [engine, engine.mode, engine.finished]);
+
+  useEffect(() => {
     if (!engine.finished) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== " " || event.repeat) return;
@@ -649,7 +664,7 @@ function Game({
                   inputRef.current?.focus();
                 }}
               >
-                Reveal word
+                Reveal word (Ctrl+Enter)
               </button>
             )}
             <button type="button" onClick={() => { setSettingsOpen(false); onRestart(); }}>Restart</button>
@@ -697,6 +712,9 @@ function Game({
             }}
           />
         </label>
+        {engine.mode === RECALL && !engine.finished && (
+          <p className="muted">Ctrl+Enter reveals the current word. You still type it, and it scores nothing.</p>
+        )}
         {engine.finished && (
           <>
             <p className="good">Finished. {summary}. {total === 1 ? "Space to start again." : `Space for ${nextName}.`}</p>
