@@ -14,14 +14,27 @@ export function useVisualViewport(): void {
       root.classList.toggle("keyboard-open", window.innerHeight - height > 120);
     }
 
+    function blockGesture(event: Event) {
+      event.preventDefault();
+    }
+    function blockPinch(event: TouchEvent) {
+      if (event.touches.length > 1) event.preventDefault();
+    }
+
     apply();
     viewport?.addEventListener("resize", apply);
     viewport?.addEventListener("scroll", apply);
     window.addEventListener("resize", apply);
+    document.addEventListener("gesturestart", blockGesture);
+    document.addEventListener("gesturechange", blockGesture);
+    document.addEventListener("touchmove", blockPinch, { passive: false });
     return () => {
       viewport?.removeEventListener("resize", apply);
       viewport?.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);
+      document.removeEventListener("gesturestart", blockGesture);
+      document.removeEventListener("gesturechange", blockGesture);
+      document.removeEventListener("touchmove", blockPinch);
       root.classList.remove("keyboard-open");
     };
   }, []);

@@ -995,12 +995,11 @@ function Passage({ engine, alert }: { engine: Engine; alert: boolean }) {
     const shown = engine.visibleText();
     return (
       <div className="prompt-body">
-        {engine.revealed && <p className="muted">Revealed: {engine.currentWord}</p>}
         <p className="passage">
           {shown}
           {!engine.finished && <span className={alert ? "caret bad" : "caret"} />}
-          {!shown && !engine.finished && (
-            <span className="faint">{engine.revealed ? "   Type the revealed word." : "   Type the first word from memory."}</span>
+          {engine.revealed && !engine.finished && (
+            <span className="revealed-word">{engine.currentWord.slice(engine.typed.length)}</span>
           )}
         </p>
       </div>
