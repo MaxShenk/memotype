@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useAppChrome } from "../App";
 import {
   deleteDeck,
   importDeck,
@@ -62,6 +63,7 @@ function downloadSample() {
 }
 
 export function Flash() {
+  const { setGameOpen } = useAppChrome();
   const [page, setPage] = useState<Page>("decks");
   const [backTo, setBackTo] = useState<Page>("decks");
   const [decks, setDecks] = useState<DeckRow[]>([]);
@@ -116,6 +118,11 @@ export function Flash() {
   }
 
   const backLabel = page === "progress" && backTo === "quiz" && deck ? deck.name : "Decks";
+
+  useEffect(() => {
+    setGameOpen(page === "quiz");
+    return () => setGameOpen(false);
+  }, [page, setGameOpen]);
 
   return (
     <>
@@ -228,7 +235,7 @@ export function Flash() {
           }}
         />
       )}
-      {page === "quiz" && <Quiz key={`${deck?.id ?? "none"}-${sessionKey}`} deck={deck} cards={cards} progress={progress} launch={launch} onProgress={showProgress} />}
+      {page === "quiz" && <Quiz key={`${deck?.id ?? "none"}-${sessionKey}`} deck={deck} cards={cards} progress={progress} launch={launch} onProgress={showProgress} onBack={goBack} />}
       {page === "progress" && (
         <Progress
           deck={deck}
@@ -554,7 +561,7 @@ function DeckEditor({
   );
 }
 
-function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | null; cards: Card[]; progress: MemoryProgress | null; launch: "resume" | "restart"; onProgress: () => void }) {
+function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: DeckRow | null; cards: Card[]; progress: MemoryProgress | null; launch: "resume" | "restart"; onProgress: () => void; onBack: () => void }) {
   const sessionRef = useRef<Session | null>(null);
   const timer = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -567,7 +574,10 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
   const [pagerOpen, setPagerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const phoneMenuRef = useRef<HTMLDivElement>(null);
   const focusAnswer = useRef(false);
+  const [phoneMenu, setPhoneMenu] = useState(false);
+  const chrome = useAppChrome();
 
   const activeCount = cards.filter((card) => cardEnabled(card)).length;
   if (deck && progress && cards.length && activeCount > 0 && sessionRef.current?.deckId !== deck.id) {
@@ -600,16 +610,18 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
   }, [tick]);
 
   useEffect(() => {
-    if (!pagerOpen && !settingsOpen) return;
+    if (!pagerOpen && !settingsOpen && !phoneMenu) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setPagerOpen(false);
       setSettingsOpen(false);
+      setPhoneMenu(false);
     }
     function onPointer(event: PointerEvent) {
       const target = event.target as Node;
       if (pagerOpen && !menuRef.current?.contains(target)) setPagerOpen(false);
       if (settingsOpen && !settingsRef.current?.contains(target)) setSettingsOpen(false);
+      if (phoneMenu && !phoneMenuRef.current?.contains(target)) setPhoneMenu(false);
     }
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointer);
@@ -617,7 +629,7 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointer);
     };
-  }, [pagerOpen, settingsOpen]);
+  }, [pagerOpen, settingsOpen, phoneMenu]);
 
   function bump() {
     setTick((value) => value + 1);
@@ -629,10 +641,20 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
   }
 
   if (!session || !deck) {
-    if (deck && cards.length > 0 && activeCount === 0) {
-      return <section className="card"><p>Every card in {deck.name} is turned off. Open the deck editor and turn at least one back on.</p></section>;
-    }
-    return <section className="card"><p>Load a deck to begin.</p></section>;
+    const message = deck && cards.length > 0 && activeCount === 0
+      ? `Every card in ${deck.name} is turned off. Open the deck editor and turn at least one back on.`
+      : "Load a deck to begin.";
+    return (
+      <>
+        <div className="play-bar">
+          <button type="button" className="crumb-back play-back" aria-label="Back" onClick={onBack}>
+            <span aria-hidden="true">←</span>
+          </button>
+          <span className="crumb-current">{deck?.name ?? "Decks"}</span>
+        </div>
+        <section className="card"><p>{message}</p></section>
+      </>
+    );
   }
 
   function goToCard() {
@@ -747,6 +769,69 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
   void tick;
 
   return (
+    <>
+    <div className="play-bar" ref={phoneMenuRef}>
+      <button type="button" className="crumb-back play-back" aria-label="Back" onClick={onBack}>
+        <span aria-hidden="true">←</span>
+      </button>
+      <span className="crumb-current">{deck.name}</span>
+      <span className="play-stat">{session.sessionMistakes} miss</span>
+      <button
+        type="button"
+        className="icon-button"
+        aria-expanded={phoneMenu}
+        aria-controls="phone-card-menu"
+        aria-label={phoneMenu ? "Close menu" : "Open menu"}
+        onClick={() => setPhoneMenu((open) => !open)}
+      >
+        <span className="bars" />
+      </button>
+      {phoneMenu && (
+        <nav id="phone-card-menu" className="menu">
+          <p className="muted">{session.positionLabel()}</p>
+          <button type="button" onClick={() => { setPhoneMenu(false); onProgress(); }}>Progress</button>
+          <div className="mode-row">
+            <button type="button" aria-pressed={!custom} onClick={followGlobal}>Default</button>
+            <button type="button" aria-pressed={custom} onClick={followDeck}>This deck</button>
+          </div>
+          <p className="muted">{custom ? "Only this deck uses these settings." : "Decks use these settings unless one has its own."}</p>
+          <div className="mode-row">
+            {([
+              [STANDARD, "Standard"],
+              [CHUNKING, "Chunking"],
+              [WEIGHTED, "Weighted"],
+            ] as const).map(([value, label]) => (
+              <button key={value} type="button" aria-pressed={session.mode === value} onClick={() => tune(() => session.setMode(value))}>{label}</button>
+            ))}
+          </div>
+          <label>
+            Chunk
+            <input
+              type="number"
+              min={1}
+              value={session.chunkSize}
+              onChange={(event) => {
+                const size = Number(event.target.value);
+                if (!Number.isFinite(size) || size < 1) return;
+                tune(() => session.setChunkSize(size));
+              }}
+            />
+          </label>
+          <button type="button" onClick={() => tune(() => session.setStartWithTerm(!session.startWithTerm))}>
+            {session.startWithTerm ? "Term → definition" : "Definition → term"}
+          </button>
+          <button type="button" aria-pressed={session.shuffle} onClick={() => tune(() => session.setShuffle(!session.shuffle))}>
+            {session.shuffle ? "Shuffle on" : "Shuffle off"}
+          </button>
+          <button type="button" onClick={() => { setPhoneMenu(false); restartRun(); }}>Restart</button>
+          <button type="button" aria-pressed={chrome.tool === "typing"} onClick={() => chrome.choose("typing")}>Typing</button>
+          <button type="button" aria-pressed={chrome.tool === "flash"} onClick={() => chrome.choose("flash")}>Flashcards</button>
+          <div className="menu-account">
+            {chrome.signOut ? <button type="button" onClick={chrome.signOut}>Sign out · {chrome.accountLabel}</button> : <span className="muted">Saved in this browser</span>}
+          </div>
+        </nav>
+      )}
+    </div>
     <section className="stage">
       <div className="stats quiz-bar" ref={settingsRef}>
         <span>{deck.name}</span>
@@ -824,28 +909,35 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
         </div>
       </article>
       <div className="card answer">
-        <label>
-          {session.showingTerm() ? "Type the definition" : "Type the term"}
-          <input
-            ref={inputRef}
-            value={answer}
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            autoComplete="off"
-            readOnly={session.checked && session.wasCorrect}
-            onChange={(event) => setAnswer(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                if (!session.checked) check();
-                else continueAfterMiss();
-              }
-            }}
-          />
-        </label>
-        <div className="actions">
-          <button type="button" className="primary" onClick={check} disabled={session.checked}>Check</button>
+        <div className="type-row">
+          <label className="type-field">
+            <span className="type-label">{session.showingTerm() ? "Type the definition" : "Type the term"}</span>
+            <input
+              ref={inputRef}
+              value={answer}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              autoComplete="off"
+              readOnly={session.checked && session.wasCorrect}
+              onChange={(event) => setAnswer(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (!session.checked) check();
+                  else continueAfterMiss();
+                }
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className="primary"
+            onClick={session.checked ? continueAfterMiss : check}
+            disabled={session.checked && session.wasCorrect}
+          >
+            {session.checked && !session.wasCorrect ? "Next" : "Check"}
+          </button>
         </div>
         {notice && <p className="bad">{notice}</p>}
       </div>
@@ -895,6 +987,7 @@ function Quiz({ deck, cards, progress, launch, onProgress }: { deck: DeckRow | n
         </button>
       </div>
     </section>
+    </>
   );
 }
 

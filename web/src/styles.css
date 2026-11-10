@@ -243,6 +243,8 @@ h1 { font-size: 1.25rem; margin: 0; }
   gap: 6px;
 }
 
+.type-row > .primary { flex: none; white-space: nowrap; }
+
 @media (max-width: 760px) {
   .app.playing { padding: 8px 12px 6px; }
   .app.playing > .top,
@@ -271,6 +273,7 @@ h1 { font-size: 1.25rem; margin: 0; }
     flex: none;
     font-variant-numeric: tabular-nums;
     font-size: 0.85rem;
+    white-space: nowrap;
   }
 
   .play-bar .icon-button { width: 36px; height: 36px; }
@@ -407,7 +410,7 @@ h1 { font-size: 1.25rem; margin: 0; }
   margin: 0;
 }
 
-.pending { color: #94a3b8; }
+.pending, .revealed-word { color: #94a3b8; }
 
 .caret {
   display: inline-block;
