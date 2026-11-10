@@ -69,12 +69,12 @@ textarea.type-line {
 .app > .top,
 .app > .crumb-bar { flex: none; }
 
-.app > :not(.top):not(.crumb-bar) {
+.app > :not(.top):not(.crumb-bar):not(.play-bar) {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.app > :not(.top):not(.crumb-bar):not(.stage) { overflow: auto; }
+.app > :not(.top):not(.crumb-bar):not(.stage):not(.play-bar) { overflow: auto; }
 
 .top {
   position: sticky;
@@ -222,6 +222,77 @@ h1 { font-size: 1.25rem; margin: 0; }
 .prompt.passage-frame .prompt-body {
   flex: none;
   justify-content: flex-start;
+}
+
+.play-bar { display: none; }
+
+.type-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.type-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 760px) {
+  .app.playing { padding: 8px 12px 6px; }
+  .app.playing > .top,
+  .app.playing > .crumb-bar { display: none; }
+
+  .play-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    margin: 0 0 4px;
+  }
+
+  .play-back {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0 2px;
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+
+  .play-bar .crumb-current { flex: 1; }
+
+  .play-stat {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.85rem;
+  }
+
+  .play-bar .icon-button { width: 36px; height: 36px; }
+  .play-bar .menu { right: 0; }
+  .play-bar .menu p { margin: 0; font-size: 0.85rem; }
+  .play-bar .mode-row button { width: auto; }
+
+  .app.playing .stage { padding-bottom: 22px; }
+  .app.playing .stage .stats { display: none; }
+  .app.playing .sheet-handle { height: 22px; }
+  .app.playing .card.prompt,
+  .app.playing .card.answer { padding: 8px 10px; margin-top: 6px; }
+
+  .type-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .type-field { gap: 0; }
 }
 
 .prompt {

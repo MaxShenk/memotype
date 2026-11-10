@@ -1,4 +1,5 @@
--- MemoType schema. Run this once in the Supabase SQL editor.
+-- MemoType schema. Run this once in the Supabase SQL editor on a new database.
+-- After that, paste new files from supabase/migrations/ instead of this file.
 -- Then set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for local dev,
 -- and the same names in the Cloudflare Pages project.
 

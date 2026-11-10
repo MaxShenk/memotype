@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState } from "react";
+import { useAppChrome } from "../App";
 import { deleteSource, ensureSample, listScores, listSources, recordScore, saveSource, type ScoreRow, type SourceRow } from "../lib/db";
 import { Engine, PRACTICE, RECALL, scoreMode, stanzasOf } from "../lib/engine";
 import { clearTypingPlace, loadTypingPlace, saveTypingPlace } from "../lib/typingPlace";
@@ -42,6 +43,7 @@ function downloadSample() {
 }
 
 export function Typing() {
+  const { setGameOpen } = useAppChrome();
   const [page, setPage] = useState<Page>("library");
   const [backTo, setBackTo] = useState<Page>("library");
   const [sources, setSources] = useState<SourceRow[]>([]);
@@ -71,6 +73,11 @@ export function Typing() {
   useEffect(() => {
     refresh().catch((reason: Error) => setError(reason.message));
   }, []);
+
+  useEffect(() => {
+    setGameOpen(page === "game");
+    return () => setGameOpen(false);
+  }, [page, setGameOpen]);
 
   function showScores() {
     setBackTo(page === "game" ? "game" : "library");
@@ -209,6 +216,7 @@ export function Typing() {
           onMode={(mode) => setPlaying((current) => current ? { ...current, mode } : current)}
           onStanzas={(stanzas) => setPlaying((current) => current ? { ...current, stanzas } : current)}
           onScores={showScores}
+          onBack={() => setPage(backTo)}
           onRestart={() => {
             const source = playing.sources[playing.index];
             if (!source) return;
@@ -458,6 +466,7 @@ function Game({
   onMode,
   onStanzas,
   onScores,
+  onBack,
   onRestart,
 }: {
   source: SourceRow;
@@ -472,6 +481,7 @@ function Game({
   onMode: (mode: string) => void;
   onStanzas: (stanzas: boolean) => void;
   onScores: () => void;
+  onBack: () => void;
   onRestart: () => void;
 }) {
   const parts = stanzasOf(source.body);
@@ -510,6 +520,9 @@ function Game({
   }
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const promptRef = useRef<HTMLElement>(null);
+  const phoneMenuRef = useRef<HTMLDivElement>(null);
+  const [phoneMenu, setPhoneMenu] = useState(false);
+  const chrome = useAppChrome();
   const lineSettled = useRef(false);
   const flashTimer = useRef(0);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -575,11 +588,13 @@ function Game({
     function onPointer(event: PointerEvent) {
       const target = event.target as Node;
       if (settingsOpen && settingsRef.current && !settingsRef.current.contains(target)) setSettingsOpen(false);
+      if (phoneMenu && phoneMenuRef.current && !phoneMenuRef.current.contains(target)) setPhoneMenu(false);
       if (pagerOpen && sheetRef.current && !sheetRef.current.contains(target)) setPagerOpen(false);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setSettingsOpen(false);
+      setPhoneMenu(false);
       setPagerOpen(false);
     }
     document.addEventListener("pointerdown", onPointer);
@@ -588,7 +603,7 @@ function Game({
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
     };
-  }, [settingsOpen, pagerOpen]);
+  }, [settingsOpen, pagerOpen, phoneMenu]);
 
   useEffect(() => {
     if (engine.mode !== RECALL || engine.finished) return;
@@ -598,6 +613,7 @@ function Game({
       event.preventDefault();
       if (!engine.reveal(Date.now() / 1000)) return;
       setSettingsOpen(false);
+      setPhoneMenu(false);
       bump(false);
       inputRef.current?.focus();
     }
@@ -702,6 +718,15 @@ function Game({
     shownRank === undefined ? "Saving…" : shownRank ? `Rank ${shownRank}` : "Saved",
   ].filter(Boolean).join(" · ");
 
+  function revealWord() {
+    if (engine.mode !== RECALL || engine.finished) return;
+    if (!engine.reveal(Date.now() / 1000)) return;
+    setSettingsOpen(false);
+    setPhoneMenu(false);
+    bump(false);
+    inputRef.current?.focus();
+  }
+
   function goToSource() {
     const index = Number(jump) - 1;
     if (activeStanzas) {
@@ -715,11 +740,67 @@ function Game({
     onJump(index);
   }
 
+  const where = activeStanzas ? `Stanza ${stanzaIndex + 1} of ${parts.length}` : `${place} of ${total}`;
+
   return (
+    <>
+    <div className="play-bar" ref={phoneMenuRef}>
+      <button type="button" className="crumb-back play-back" aria-label="Back" onClick={onBack}>
+        <span aria-hidden="true">←</span>
+      </button>
+      <span className="crumb-current">{source.name}</span>
+      <span className="play-stat">{clock(elapsed)}</span>
+      <span className="play-stat">{engine.score} pts</span>
+      <button
+        type="button"
+        className="icon-button"
+        aria-expanded={phoneMenu}
+        aria-controls="phone-game-menu"
+        aria-label={phoneMenu ? "Close menu" : "Open menu"}
+        onClick={() => setPhoneMenu((open) => !open)}
+      >
+        <span className="bars" />
+      </button>
+      {phoneMenu && (
+        <nav id="phone-game-menu" className="menu">
+          <p className="muted">{engine.mode === PRACTICE ? "Practice" : "Recall"}{activeStanzas ? " · Stanzas" : ""} · {where}</p>
+          <p className="muted">{wpm === null ? "— WPM" : `${wpm} WPM`} · {accuracy === null ? "—" : `${Math.round(accuracy)}%`}</p>
+          <button type="button" onClick={() => { setPhoneMenu(false); onScores(); }}>High scores</button>
+          <div className="mode-row">
+            <button type="button" aria-pressed={mode === PRACTICE} onClick={() => onMode(PRACTICE)}>Practice</button>
+            <button type="button" aria-pressed={mode === RECALL} onClick={() => onMode(RECALL)}>Recall</button>
+          </div>
+          <div className="mode-row">
+            <button type="button" aria-pressed={!stanzas} onClick={() => onStanzas(false)}>Whole passage</button>
+            <button type="button" aria-pressed={stanzas} onClick={() => onStanzas(true)}>Stanzas</button>
+          </div>
+          {parts.length === 1 && stanzas && <p className="muted">No blank line in this passage, so it is one stanza.</p>}
+          {(mode !== engine.mode || stanzas !== activeStanzas) && (
+            <p className="muted">Restart to switch this run.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setPhoneMenu(false);
+              if (stanzas !== activeStanzas || mode !== engine.mode) onRestart();
+              else if (activeStanzas) restartStanza();
+              else onRestart();
+            }}
+          >
+            Restart
+          </button>
+          <button type="button" aria-pressed={chrome.tool === "typing"} onClick={() => chrome.choose("typing")}>Typing</button>
+          <button type="button" aria-pressed={chrome.tool === "flash"} onClick={() => chrome.choose("flash")}>Flashcards</button>
+          <div className="menu-account">
+            {chrome.signOut ? <button type="button" onClick={chrome.signOut}>Sign out · {chrome.accountLabel}</button> : <span className="muted">Saved in this browser</span>}
+          </div>
+        </nav>
+      )}
+    </div>
     <section className="stage">
       <div className="stats quiz-bar" ref={settingsRef}>
         <span>{engine.mode === PRACTICE ? "Practice" : "Recall"}{activeStanzas ? " · Stanzas" : ""}</span>
-        <span>{activeStanzas ? `Stanza ${stanzaIndex + 1} of ${parts.length}` : `${place} of ${total}`}</span>
+        <span>{where}</span>
         <span>{clock(elapsed)}</span>
         <span>{engine.score} pts</span>
         <span>{wpm === null ? "—" : `${wpm} WPM`}</span>
@@ -756,19 +837,6 @@ function Game({
                   : "The next source uses this setting. This one stays as it is."}
               </p>
             )}
-            {engine.mode === RECALL && !engine.finished && (
-              <button
-                type="button"
-                onClick={() => {
-                  engine.reveal(Date.now() / 1000);
-                  bump(false);
-                  setSettingsOpen(false);
-                  inputRef.current?.focus();
-                }}
-              >
-                Reveal word (Ctrl+Enter)
-              </button>
-            )}
             <button
               type="button"
               onClick={() => {
@@ -788,8 +856,9 @@ function Game({
         <Passage engine={engine} alert={alert} />
       </article>
       <div className="card answer">
-        <label>
-          Type here
+        <div className="type-row">
+        <label className="type-field">
+          <span className="type-label">Type here</span>
           <textarea
             ref={inputRef}
             className="type-line"
@@ -825,8 +894,11 @@ function Game({
           />
         </label>
         {engine.mode === RECALL && !engine.finished && (
-          <p className="muted">Ctrl+Enter reveals the current word. You still type it, and it scores nothing.</p>
+          <button type="button" className="icon-button reveal-button" aria-label="Reveal word" onClick={revealWord}>
+            <RevealIcon />
+          </button>
         )}
+        </div>
         {engine.finished && activeStanzas && (
           <>
             <p className="good">
@@ -905,6 +977,16 @@ function Game({
         </button>
       </div>
     </section>
+    </>
+  );
+}
+
+function RevealIcon() {
+  return (
+    <svg className="glyph" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
   );
 }
 

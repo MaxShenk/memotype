@@ -1,10 +1,26 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState, createContext, useContext, useMemo } from "react";
 import { Flash } from "./flash/Flash";
 import { supabase } from "./lib/supabase";
 import { Typing } from "./typing/Typing";
 import { useVisualViewport } from "./lib/viewport";
 
 type Tool = "typing" | "flash";
+
+type Chrome = {
+  tool: Tool;
+  choose: (tool: Tool) => void;
+  accountLabel: string | null;
+  signOut: (() => void) | null;
+  setGameOpen: (open: boolean) => void;
+};
+
+const ChromeContext = createContext<Chrome | null>(null);
+
+export function useAppChrome(): Chrome {
+  const chrome = useContext(ChromeContext);
+  if (!chrome) throw new Error("App chrome is missing");
+  return chrome;
+}
 
 export function App() {
   useVisualViewport();
@@ -98,7 +114,18 @@ function Logo() {
 function Shell({ email, local = false }: { email?: string; local?: boolean }) {
   const [tool, setTool] = useState<Tool>("typing");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const barRef = useRef<HTMLElement>(null);
+  const chrome = useMemo<Chrome>(() => ({
+    tool,
+    choose: (next) => {
+      setTool(next);
+      setMenuOpen(false);
+    },
+    accountLabel: local ? null : email ?? null,
+    signOut: local ? null : () => { void supabase?.auth.signOut(); },
+    setGameOpen: setPlaying,
+  }), [tool, email, local]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -122,7 +149,8 @@ function Shell({ email, local = false }: { email?: string; local?: boolean }) {
   }
 
   return (
-    <main className="app">
+    <ChromeContext.Provider value={chrome}>
+    <main className={playing ? "app playing" : "app"}>
       <header className="top" ref={barRef}>
         <div className="brand">
           <Logo />
@@ -152,5 +180,6 @@ function Shell({ email, local = false }: { email?: string; local?: boolean }) {
       </header>
       {tool === "typing" ? <Typing /> : <Flash />}
     </main>
+    </ChromeContext.Provider>
   );
 }
