@@ -370,6 +370,7 @@ function Decks({
 }) {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<DeckRow | null>(null);
+  const [creating, setCreating] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftCards, setDraftCards] = useState<Card[]>([]);
 
@@ -377,8 +378,17 @@ function Decks({
     return JSON.parse(await file.text()) as unknown;
   }
 
+  function startNew() {
+    setEditing(null);
+    setCreating(true);
+    setDraftName("");
+    setDraftCards([{ term: "", definition: "", image: "", enabled: true }]);
+    setMessage("");
+  }
+
   function startEdit(row: DeckRow) {
     loadCards(row.id).then((loaded) => {
+      setCreating(false);
       setEditing(row);
       setDraftName(row.name);
       setDraftCards(loaded.map((card) => ({ ...card })));
@@ -386,20 +396,42 @@ function Decks({
     }).catch((reason: Error) => setMessage(reason.message));
   }
 
-  if (editing) {
+  function closeEditor() {
+    setEditing(null);
+    setCreating(false);
+  }
+
+  async function saveEditor() {
+    const ready = draftCards.filter((card) => card.term.trim() || card.definition.trim() || card.image.trim());
+    if (ready.length === 0) throw new Error("Add a term and a definition before saving.");
+    if (creating) {
+      const clean = sanitizeName(draftName);
+      const match = decks.find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
+      if (match && !window.confirm(`Replace the cards in ${match.name}?`)) return;
+      const result = await importDeck(clean, ready);
+      setMessage(result.updated ? `Updated ${clean}` : `Saved ${clean}`);
+      closeEditor();
+      await onCardsChanged(result.id);
+      return;
+    }
+    if (!editing) return;
+    await saveDeck(editing.id, draftName, ready);
+    setMessage(`Saved ${sanitizeName(draftName)}`);
+    const id = editing.id;
+    closeEditor();
+    await onCardsChanged(id);
+  }
+
+  if (creating || editing) {
     return (
       <DeckEditor
         name={draftName}
         cards={draftCards}
         onName={setDraftName}
         onCards={setDraftCards}
-        onCancel={() => setEditing(null)}
+        onCancel={closeEditor}
         onSave={() => {
-          saveDeck(editing.id, draftName, draftCards).then(async () => {
-            setMessage(`Saved ${sanitizeName(draftName)}`);
-            setEditing(null);
-            await onCardsChanged(editing.id);
-          }).catch((reason: Error) => setMessage(reason.message));
+          saveEditor().catch((reason: Error) => setMessage(reason.message));
         }}
         message={message}
       />
@@ -408,8 +440,11 @@ function Decks({
 
   return (
     <section className="list">
+      <div className="actions">
+        <button type="button" className="primary" onClick={startNew}>New deck</button>
+      </div>
       {message && <p className="muted">{message}</p>}
-      {decks.length === 0 && <p className="muted">No decks yet. Create one from the dictionary, or import a JSON file.</p>}
+      {decks.length === 0 && <p className="muted">No decks yet. New deck lets you type cards yourself. You can also make one from the dictionary, or import a JSON file.</p>}
       {decks.map((row) => {
         const place = loadPlace(row.id);
         return (
