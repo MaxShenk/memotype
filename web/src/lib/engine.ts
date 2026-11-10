@@ -24,6 +24,19 @@ export function normalizePassage(text: string): string {
   return next.trim();
 }
 
+/** A blank line starts a new stanza. A single line break stays inside the stanza. */
+export function stanzasOf(text: string): string[] {
+  const normalized = normalizePassage(text);
+  if (!normalized) return [];
+  const parts = normalized.split(/\n[ \t]*\n+/).map((part) => part.trim()).filter(Boolean);
+  return parts.length > 0 ? parts : [normalized];
+}
+
+export function scoreMode(typingMode: string, byStanza: boolean): string {
+  if (!byStanza) return typingMode;
+  return typingMode === RECALL ? "stanza-recall" : "stanza-practice";
+}
+
 export class Engine {
   text: string;
   mode: string;

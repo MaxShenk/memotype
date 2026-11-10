@@ -2,7 +2,7 @@ import type { EngineSnapshot } from "./engine";
 
 const KEY = "memotype.typing";
 
-export type TypingPlace = EngineSnapshot & { sourceId: string; mode: string };
+export type TypingPlace = EngineSnapshot & { sourceId: string; mode: string; stanza?: number };
 
 function read(): Record<string, TypingPlace> {
   try {

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { deleteSource, ensureSample, listScores, listSources, recordScore, saveSource, type ScoreRow, type SourceRow } from "../lib/db";
-import { Engine, PRACTICE, RECALL } from "../lib/engine";
+import { Engine, PRACTICE, RECALL, scoreMode, stanzasOf } from "../lib/engine";
 import { clearTypingPlace, loadTypingPlace, saveTypingPlace } from "../lib/typingPlace";
 
 type Page = "library" | "edit" | "game" | "scores" | "import";
@@ -51,14 +51,14 @@ export function Typing() {
   const [shuffleOn, setShuffleOn] = useState(false);
   const [run, setRun] = useState(0);
   const [fresh, setFresh] = useState(false);
-  const [playing, setPlaying] = useState<{ sources: SourceRow[]; index: number; mode: string } | null>(null);
+  const [playing, setPlaying] = useState<{ sources: SourceRow[]; index: number; mode: string; stanzas: boolean } | null>(null);
 
-  function begin(mode: string, list: SourceRow[], options: { shuffle?: boolean; fresh?: boolean } = {}) {
+  function begin(mode: string, list: SourceRow[], options: { shuffle?: boolean; fresh?: boolean; stanzas?: boolean } = {}) {
     if (list.length === 0) return;
     if (options.fresh) list.forEach((source) => clearTypingPlace(source.id));
     setFresh(Boolean(options.fresh));
     setRun((value) => value + 1);
-    setPlaying({ sources: options.shuffle ? shuffleSources(list) : list, index: 0, mode });
+    setPlaying({ sources: options.shuffle ? shuffleSources(list) : list, index: 0, mode, stanzas: Boolean(options.stanzas) });
     setBackTo("library");
     setPage("game");
   }
@@ -147,9 +147,13 @@ export function Typing() {
             setSelected((current) => current.size === sources.length ? new Set() : new Set(sources.map((source) => source.id)));
           }}
           onShuffle={() => setShuffleOn((value) => !value)}
-          onOpen={(source) => begin(loadTypingPlace(source.id)?.mode ?? PRACTICE, [source])}
+          onOpen={(source) => {
+            const saved = loadTypingPlace(source.id);
+            const mode = saved?.mode === RECALL ? RECALL : PRACTICE;
+            begin(mode, [source], { stanzas: typeof saved?.stanza === "number" });
+          }}
           onRestart={(source) => begin(PRACTICE, [source], { fresh: true })}
-          onQueue={(mode) => begin(mode, sources.filter((source) => selected.has(source.id)), { shuffle: shuffleOn, fresh: true })}
+          onQueue={(mode, stanzas) => begin(mode, sources.filter((source) => selected.has(source.id)), { shuffle: shuffleOn, fresh: true, stanzas })}
           onEdit={(source) => { setEditing(source); setBackTo("library"); setPage("edit"); }}
           onNew={() => { setEditing(null); setBackTo("library"); setPage("edit"); }}
           onDelete={async (source) => {
@@ -187,6 +191,7 @@ export function Typing() {
           key={`${playing.sources[playing.index]?.id ?? "none"}-${run}`}
           source={playing.sources[playing.index]}
           mode={playing.mode}
+          stanzas={playing.stanzas}
           fresh={fresh}
           place={playing.index + 1}
           total={playing.sources.length}
@@ -202,6 +207,7 @@ export function Typing() {
             setPlaying((current) => current ? { ...current, index } : current);
           }}
           onMode={(mode) => setPlaying((current) => current ? { ...current, mode } : current)}
+          onStanzas={(stanzas) => setPlaying((current) => current ? { ...current, stanzas } : current)}
           onScores={showScores}
           onRestart={() => {
             const source = playing.sources[playing.index];
@@ -239,7 +245,7 @@ function Library({
   onShuffle: () => void;
   onOpen: (source: SourceRow) => void;
   onRestart: (source: SourceRow) => void;
-  onQueue: (mode: string) => void;
+  onQueue: (mode: string, stanzas?: boolean) => void;
   onEdit: (source: SourceRow) => void;
   onDelete: (source: SourceRow) => Promise<void>;
   onNew: () => void;
@@ -368,6 +374,7 @@ function Library({
           <div className="queue-row">
             <button type="button" className="primary" disabled={picked === 0} onClick={() => onQueue(PRACTICE)}>Practice</button>
             <button type="button" disabled={picked === 0} onClick={() => onQueue(RECALL)}>Recall</button>
+            <button type="button" disabled={picked === 0} onClick={() => onQueue(RECALL, true)}>Stanzas</button>
           </div>
         </div>
       )}
@@ -441,6 +448,7 @@ function Editor({ source, onSave, onCancel }: { source: SourceRow | null; onSave
 function Game({
   source,
   mode,
+  stanzas,
   fresh,
   place,
   total,
@@ -448,11 +456,13 @@ function Game({
   onAdvance,
   onJump,
   onMode,
+  onStanzas,
   onScores,
   onRestart,
 }: {
   source: SourceRow;
   mode: string;
+  stanzas: boolean;
   fresh: boolean;
   place: number;
   total: number;
@@ -460,27 +470,47 @@ function Game({
   onAdvance: () => void;
   onJump: (index: number) => void;
   onMode: (mode: string) => void;
+  onStanzas: (stanzas: boolean) => void;
   onScores: () => void;
   onRestart: () => void;
 }) {
+  const parts = stanzasOf(source.body);
+  const [stanzaIndex, setStanzaIndex] = useState(() => {
+    if (!stanzas || fresh) return 0;
+    const saved = loadTypingPlace(source.id);
+    if (!saved || typeof saved.stanza !== "number") return 0;
+    return Math.min(Math.max(0, saved.stanza), Math.max(0, parts.length - 1));
+  });
   const [engine, setEngine] = useState(() => {
-    const next = new Engine(source.body, mode);
+    const text = stanzas ? (parts[stanzaIndex] || source.body) : source.body;
+    const next = new Engine(text, mode);
     if (!fresh) {
       const saved = loadTypingPlace(source.id);
-      if (saved && saved.mode === mode && saved.endedAt === null) next.restore(saved);
+      const sameScope = stanzas ? saved?.stanza === stanzaIndex : saved?.stanza == null;
+      if (saved && saved.mode === mode && saved.endedAt === null && sameScope) next.restore(saved);
     }
     return next;
   });
-  const [tracked, setTracked] = useState({ id: source.id, mode });
+  const [activeStanzas, setActiveStanzas] = useState(stanzas);
+  const [tracked, setTracked] = useState({ id: source.id, mode, stanzas });
   if (source.id !== tracked.id) {
-    setTracked({ id: source.id, mode });
-    setEngine(new Engine(source.body, mode));
-  } else if (mode !== tracked.mode) {
+    setTracked({ id: source.id, mode, stanzas });
+    setActiveStanzas(stanzas);
+    setStanzaIndex(0);
+    setEngine(new Engine(stanzas ? (parts[0] || source.body) : source.body, mode));
+  } else if (mode !== tracked.mode || stanzas !== tracked.stanzas) {
     const untouched = engine.startedAt === null && !engine.finished;
-    setTracked({ id: source.id, mode });
-    if (untouched) setEngine(new Engine(source.body, mode));
+    setTracked({ id: source.id, mode, stanzas });
+    if (untouched) {
+      const index = stanzas ? 0 : stanzaIndex;
+      if (stanzas) setStanzaIndex(0);
+      setActiveStanzas(stanzas);
+      setEngine(new Engine(stanzas ? (parts[index] || source.body) : source.body, mode));
+    }
   }
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const promptRef = useRef<HTMLElement>(null);
+  const lineSettled = useRef(false);
   const flashTimer = useRef(0);
   const settingsRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -497,20 +527,49 @@ function Game({
 
   useEffect(() => {
     inputRef.current?.focus();
+    lineSettled.current = false;
   }, [engine]);
 
   useEffect(() => {
-    setJump(String(place));
-  }, [place]);
+    const box = promptRef.current;
+    if (!box) return;
+    function place(smooth: boolean) {
+      const passage = box?.querySelector(".passage");
+      if (passage instanceof HTMLElement && box) {
+        const half = box.clientHeight / 2;
+        passage.style.paddingTop = `${half}px`;
+        passage.style.paddingBottom = `${half}px`;
+      }
+      if (!box || engine.finished) return;
+      const marker = box.querySelector(".target, .caret");
+      if (!(marker instanceof HTMLElement)) return;
+      const top = marker.offsetTop + marker.offsetHeight / 2 - box.clientHeight / 2;
+      box.scrollTo({ top: Math.max(0, top), behavior: smooth ? "smooth" : "auto" });
+    }
+    place(lineSettled.current);
+    lineSettled.current = true;
+    const observer = new ResizeObserver(() => place(false));
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, [engine, tick, engine.finished]);
+
+  useEffect(() => {
+    setJump(String(activeStanzas ? stanzaIndex + 1 : place));
+  }, [place, activeStanzas, stanzaIndex]);
 
   useEffect(() => {
     if (engine.finished) {
       clearTypingPlace(source.id);
       return;
     }
-    if (engine.startedAt === null && engine.pos === 0) return;
-    saveTypingPlace({ sourceId: source.id, mode: engine.mode, ...engine.snapshot() });
-  }, [engine, source.id, tick]);
+    if (engine.startedAt === null && engine.pos === 0 && !activeStanzas) return;
+    saveTypingPlace({
+      sourceId: source.id,
+      mode: engine.mode,
+      stanza: activeStanzas ? stanzaIndex : undefined,
+      ...engine.snapshot(),
+    });
+  }, [engine, source.id, tick, activeStanzas, stanzaIndex]);
 
   useEffect(() => {
     function onPointer(event: PointerEvent) {
@@ -549,13 +608,21 @@ function Game({
   useEffect(() => {
     if (!engine.finished) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key !== " " || event.repeat) return;
-      event.preventDefault();
-      onAdvance();
+      if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      const field = event.target instanceof HTMLElement && event.target.closest("input, textarea");
+      if (field) return;
+      if (event.key === " ") {
+        event.preventDefault();
+        if (activeStanzas) restartStanza();
+        else onAdvance();
+      } else if (event.key === "Enter" && activeStanzas) {
+        event.preventDefault();
+        nextStanza();
+      }
     }
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [engine.finished, onAdvance]);
+  }, [engine.finished, onAdvance, activeStanzas, stanzaIndex, parts.length, engine.mode, source.body]);
 
   useEffect(() => {
     if (!engine.startedAt || engine.finished) return;
@@ -569,7 +636,7 @@ function Game({
     const seconds = engine.elapsed(Date.now() / 1000);
     recordScore({
       source_id: source.id,
-      mode: engine.mode,
+      mode: scoreMode(engine.mode, activeStanzas),
       score: engine.score,
       wpm: engine.wpm(Date.now() / 1000),
       accuracy: engine.accuracy(),
@@ -577,7 +644,7 @@ function Game({
     })
       .then((value) => setRank({ engine, value }))
       .catch(() => setRank({ engine, value: null }));
-  }, [engine, engine.finished, source.id, tick]);
+  }, [engine, engine.finished, source.id, tick, activeStanzas]);
 
   function bump(mistake: boolean) {
     setTick((value) => value + 1);
@@ -601,6 +668,30 @@ function Game({
     bump(mistake);
   }
 
+  function openStanza(index: number, typingMode = engine.mode) {
+    const text = parts[index] || source.body;
+    setStanzaIndex(index);
+    setActiveStanzas(true);
+    setAlert(false);
+    setEngine(new Engine(text, typingMode));
+  }
+
+  function restartStanza() {
+    clearTypingPlace(source.id);
+    const text = activeStanzas ? (parts[stanzaIndex] || source.body) : source.body;
+    setAlert(false);
+    setEngine(new Engine(text, engine.mode));
+  }
+
+  function nextStanza() {
+    if (stanzaIndex + 1 < parts.length) {
+      openStanza(stanzaIndex + 1);
+      return;
+    }
+    if (total > 1) onAdvance();
+    else openStanza(0);
+  }
+
   const elapsed = engine.elapsed(now);
   const wpm = elapsed >= 1 ? Math.round(engine.wpm(now)) : null;
   const accuracy = engine.accuracy();
@@ -613,6 +704,12 @@ function Game({
 
   function goToSource() {
     const index = Number(jump) - 1;
+    if (activeStanzas) {
+      if (!Number.isInteger(index) || index < 0 || index >= parts.length || index === stanzaIndex) return;
+      setPagerOpen(false);
+      openStanza(index);
+      return;
+    }
     if (!Number.isInteger(index) || index < 0 || index >= total || index === place - 1) return;
     setPagerOpen(false);
     onJump(index);
@@ -621,8 +718,8 @@ function Game({
   return (
     <section className="stage">
       <div className="stats quiz-bar" ref={settingsRef}>
-        <span>{engine.mode === PRACTICE ? "Practice" : "Recall"}</span>
-        <span>{place} of {total}</span>
+        <span>{engine.mode === PRACTICE ? "Practice" : "Recall"}{activeStanzas ? " · Stanzas" : ""}</span>
+        <span>{activeStanzas ? `Stanza ${stanzaIndex + 1} of ${parts.length}` : `${place} of ${total}`}</span>
         <span>{clock(elapsed)}</span>
         <span>{engine.score} pts</span>
         <span>{wpm === null ? "—" : `${wpm} WPM`}</span>
@@ -647,11 +744,16 @@ function Game({
               <button type="button" aria-pressed={mode === PRACTICE} onClick={() => onMode(PRACTICE)}>Practice</button>
               <button type="button" aria-pressed={mode === RECALL} onClick={() => onMode(RECALL)}>Recall</button>
             </div>
-            {mode !== engine.mode && (
+            <div className="mode-row">
+              <button type="button" aria-pressed={!stanzas} onClick={() => onStanzas(false)}>Whole passage</button>
+              <button type="button" aria-pressed={stanzas} onClick={() => onStanzas(true)}>Stanzas</button>
+            </div>
+            {parts.length === 1 && stanzas && <p className="muted">No blank line in this passage, so it is one stanza.</p>}
+            {(mode !== engine.mode || stanzas !== activeStanzas) && (
               <p className="muted">
                 {total === 1
-                  ? `Restart to switch this source to ${mode === PRACTICE ? "Practice" : "Recall"}.`
-                  : `Next source: ${mode === PRACTICE ? "Practice" : "Recall"}. This one stays ${engine.mode === PRACTICE ? "Practice" : "Recall"}.`}
+                  ? "Restart to switch this run."
+                  : "The next source uses this setting. This one stays as it is."}
               </p>
             )}
             {engine.mode === RECALL && !engine.finished && (
@@ -667,11 +769,21 @@ function Game({
                 Reveal word (Ctrl+Enter)
               </button>
             )}
-            <button type="button" onClick={() => { setSettingsOpen(false); onRestart(); }}>Restart</button>
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsOpen(false);
+                if (stanzas !== activeStanzas || mode !== engine.mode) onRestart();
+                else if (activeStanzas) restartStanza();
+                else onRestart();
+              }}
+            >
+              Restart
+            </button>
           </div>
         )}
       </div>
-      <article className={alert && !engine.finished ? "card prompt mistake" : "card prompt"}>
+      <article ref={promptRef} className={alert && !engine.finished ? "card prompt mistake passage-frame" : "card prompt passage-frame"}>
         <span className="sr-only" aria-live="polite">{alert && !engine.finished ? "Incorrect" : ""}</span>
         <Passage engine={engine} alert={alert} />
       </article>
@@ -715,7 +827,18 @@ function Game({
         {engine.mode === RECALL && !engine.finished && (
           <p className="muted">Ctrl+Enter reveals the current word. You still type it, and it scores nothing.</p>
         )}
-        {engine.finished && (
+        {engine.finished && activeStanzas && (
+          <>
+            <p className="good">
+              Finished stanza {stanzaIndex + 1}. {summary}. Space runs it again. Enter for {stanzaIndex + 1 < parts.length ? `stanza ${stanzaIndex + 2}` : total > 1 ? nextName : "stanza 1"}.
+            </p>
+            <div className="actions">
+              <button type="button" onClick={restartStanza}>Again</button>
+              <button type="button" className="primary" onClick={nextStanza}>{stanzaIndex + 1 < parts.length ? "Next stanza" : total > 1 ? "Next passage" : "First stanza"}</button>
+            </div>
+          </>
+        )}
+        {engine.finished && !activeStanzas && (
           <>
             <p className="good">Finished. {summary}. {total === 1 ? "Space to start again." : `Space for ${nextName}.`}</p>
             <div className="actions">
@@ -724,21 +847,27 @@ function Game({
           </>
         )}
       </div>
-      {pagerOpen && <button type="button" className="sheet-backdrop" aria-label="Close source jump" onClick={() => setPagerOpen(false)} />}
+      {pagerOpen && <button type="button" className="sheet-backdrop" aria-label={activeStanzas ? "Close stanza jump" : "Close source jump"} onClick={() => setPagerOpen(false)} />}
       <div className="sheet-dock" ref={sheetRef}>
         {pagerOpen && (
           <div className="quiz-sheet pager-sheet" id="source-jump">
             <div className="pager">
-              <button type="button" className="icon-button" aria-label="Previous source" disabled={place <= 1} onClick={() => onJump(place - 2)}>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={activeStanzas ? "Previous stanza" : "Previous source"}
+                disabled={(activeStanzas ? stanzaIndex : place - 1) <= 0}
+                onClick={() => (activeStanzas ? openStanza(stanzaIndex - 1) : onJump(place - 2))}
+              >
                 <ArrowIcon direction="left" />
               </button>
               <div className="pager-center">
                 <label>
-                  Go to source
+                  {activeStanzas ? "Go to stanza" : "Go to source"}
                   <input
                     type="number"
                     min={1}
-                    max={total}
+                    max={activeStanzas ? parts.length : total}
                     inputMode="numeric"
                     value={jump}
                     onChange={(event) => setJump(event.target.value)}
@@ -752,7 +881,13 @@ function Game({
                 </label>
                 <button type="button" onClick={goToSource}>Go</button>
               </div>
-              <button type="button" className="icon-button" aria-label="Next source" disabled={place >= total} onClick={() => onJump(place)}>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={activeStanzas ? "Next stanza" : "Next source"}
+                disabled={activeStanzas ? stanzaIndex >= parts.length - 1 : place >= total}
+                onClick={() => (activeStanzas ? openStanza(stanzaIndex + 1) : onJump(place))}
+              >
                 <ArrowIcon direction="right" />
               </button>
             </div>
@@ -763,7 +898,7 @@ function Game({
           className="sheet-handle"
           aria-expanded={pagerOpen}
           aria-controls="source-jump"
-          aria-label={pagerOpen ? "Close source jump" : "Go to source"}
+          aria-label={pagerOpen ? (activeStanzas ? "Close stanza jump" : "Close source jump") : (activeStanzas ? "Go to stanza" : "Go to source")}
           onClick={() => setPagerOpen((open) => !open)}
         >
           <span className={pagerOpen ? "sheet-chevron down" : "sheet-chevron"} />
@@ -867,6 +1002,14 @@ function UploadIcon() {
   );
 }
 
+function scoreName(mode: string): string {
+  if (mode === PRACTICE) return "Practice";
+  if (mode === RECALL) return "Recall";
+  if (mode === "stanza-practice") return "Stanza practice";
+  if (mode === "stanza-recall") return "Stanza recall";
+  return mode;
+}
+
 function Scores({ sources }: { sources: SourceRow[] }) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [mode, setMode] = useState("all");
@@ -892,9 +1035,9 @@ function Scores({ sources }: { sources: SourceRow[] }) {
         </select>
       </label>
       <div className="switch">
-        {["all", PRACTICE, RECALL].map((value) => (
+        {[["all", "All"], [PRACTICE, "Practice"], [RECALL, "Recall"], ["stanza-practice", "Stanza practice"], ["stanza-recall", "Stanza recall"]].map(([value, label]) => (
           <button key={value} aria-pressed={mode === value} onClick={() => setMode(value)}>
-            {value === "all" ? "All" : value === PRACTICE ? "Practice" : "Recall"}
+            {label}
           </button>
         ))}
       </div>
@@ -903,7 +1046,7 @@ function Scores({ sources }: { sources: SourceRow[] }) {
       {shown.map((row, index) => (
         <div className="score-line" key={row.id}>
           <span>{index + 1}</span>
-          <span>{row.mode} · {Math.round(row.wpm)} WPM · {row.accuracy === null ? "—" : `${Math.round(row.accuracy)}%`}</span>
+          <span>{scoreName(row.mode)} · {Math.round(row.wpm)} WPM · {row.accuracy === null ? "—" : `${Math.round(row.accuracy)}%`}</span>
           <strong>{row.score}</strong>
         </div>
       ))}

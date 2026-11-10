@@ -97,7 +97,7 @@ export function localRecordScore(entry: Omit<ScoreRow, "id" | "created_at">): nu
   const row: ScoreRow = { ...entry, id: id(), created_at: new Date().toISOString() };
   store.scores.push(row);
   write(store);
-  const rows = localListScores(entry.source_id);
+  const rows = localListScores(entry.source_id).filter((item) => item.mode === entry.mode);
   const rank = rows.findIndex((item) => item.id === row.id) + 1;
   return rank > 0 && rank <= 100 ? rank : null;
 }

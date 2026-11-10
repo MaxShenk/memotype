@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { Engine, normalizePassage } from "./engine";
+import { Engine, normalizePassage, stanzasOf } from "./engine";
 
 describe("normalizePassage", () => {
   it("cleans newlines quotes and edges", () => {
     expect(normalizePassage("  “Hello”\r\nworld\t \n")).toBe('"Hello"\nworld');
+  });
+
+  it("splits stanzas on a blank line and keeps single breaks", () => {
+    expect(stanzasOf("one\ntwo\n\nthree")).toEqual(["one\ntwo", "three"]);
+    expect(stanzasOf("one\n \n\ntwo")).toEqual(["one", "two"]);
+    expect(stanzasOf("only one")).toEqual(["only one"]);
   });
 });
 

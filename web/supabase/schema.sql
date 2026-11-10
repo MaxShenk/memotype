@@ -16,13 +16,16 @@ create table if not exists public.scores (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   source_id uuid not null references public.sources (id) on delete cascade,
-  mode text not null check (mode in ('practice', 'recall')),
+  mode text not null check (mode in ('practice', 'recall', 'stanza-practice', 'stanza-recall')),
   score integer not null,
   wpm double precision not null,
   accuracy double precision,
   seconds double precision not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.scores drop constraint if exists scores_mode_check;
+alter table public.scores add constraint scores_mode_check check (mode in ('practice', 'recall', 'stanza-practice', 'stanza-recall'));
 
 create table if not exists public.decks (
   id uuid primary key default gen_random_uuid(),

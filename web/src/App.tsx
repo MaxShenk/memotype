@@ -2,10 +2,12 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Flash } from "./flash/Flash";
 import { supabase } from "./lib/supabase";
 import { Typing } from "./typing/Typing";
+import { useVisualViewport } from "./lib/viewport";
 
 type Tool = "typing" | "flash";
 
 export function App() {
+  useVisualViewport();
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
 

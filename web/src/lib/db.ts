@@ -109,7 +109,7 @@ export async function recordScore(entry: Omit<ScoreRow, "id" | "created_at">): P
   if (!supabase) return localRecordScore(entry);
   const { error } = await db().from("scores").insert(entry);
   if (error) throw error;
-  const rows = await listScores(entry.source_id);
+  const rows = (await listScores(entry.source_id)).filter((row) => row.mode === entry.mode);
   const match = rows.find(
     (row) => row.mode === entry.mode && row.score === entry.score && Math.abs(row.seconds - entry.seconds) < 0.01,
   );
