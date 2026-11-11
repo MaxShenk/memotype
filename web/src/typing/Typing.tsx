@@ -84,6 +84,20 @@ export function Typing() {
     setPage("scores");
   }
 
+  function exitGame() {
+    setBackTo("library");
+    setPage("library");
+  }
+
+  function goBack() {
+    if (page === "game") {
+      exitGame();
+      return;
+    }
+    if (backTo === "game") setBackTo("library");
+    setPage(backTo);
+  }
+
   const backLabel = backTo === "game" && playing ? playing.sources[playing.index]?.name ?? "Library" : "Library";
 
   return (
@@ -93,7 +107,16 @@ export function Typing() {
           {page === "library" ? (
             <span className="crumb-current">Library</span>
           ) : (
-            <button type="button" className="crumb-back" onClick={() => setPage(backTo)}>
+            <button
+              type="button"
+              className="crumb-back"
+              onClick={goBack}
+              onPointerUp={(event) => {
+                if (event.pointerType !== "touch" || event.button !== 0) return;
+                event.preventDefault();
+                goBack();
+              }}
+            >
               <span aria-hidden="true">←</span> {backLabel}
             </button>
           )}
@@ -216,7 +239,7 @@ export function Typing() {
           onMode={(mode) => setPlaying((current) => current ? { ...current, mode } : current)}
           onStanzas={(stanzas) => setPlaying((current) => current ? { ...current, stanzas } : current)}
           onScores={showScores}
-          onBack={() => setPage(backTo)}
+          onBack={exitGame}
           onRestart={() => {
             const source = playing.sources[playing.index];
             if (!source) return;
@@ -573,6 +596,7 @@ function Game({
   useEffect(() => {
     if (engine.finished) {
       clearTypingPlace(source.id);
+      inputRef.current?.blur();
       return;
     }
     if (engine.startedAt === null && engine.pos === 0 && !activeStanzas) return;
@@ -625,7 +649,7 @@ function Game({
     if (!engine.finished) return;
     function onKey(event: KeyboardEvent) {
       if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
-      const field = event.target instanceof HTMLElement && event.target.closest("input, textarea");
+      const field = event.target instanceof HTMLElement && event.target.closest("button, a, input, textarea");
       if (field) return;
       if (event.key === " ") {
         event.preventDefault();
@@ -745,7 +769,17 @@ function Game({
   return (
     <>
     <div className="play-bar" ref={phoneMenuRef}>
-      <button type="button" className="crumb-back play-back" aria-label="Back" onClick={onBack}>
+      <button
+        type="button"
+        className="crumb-back play-back"
+        aria-label="Back"
+        onClick={onBack}
+        onPointerUp={(event) => {
+          if (event.pointerType !== "touch" || event.button !== 0) return;
+          event.preventDefault();
+          onBack();
+        }}
+      >
         <span aria-hidden="true">←</span>
       </button>
       <span className="crumb-current">{source.name}</span>
@@ -868,7 +902,7 @@ function Game({
             autoCorrect="off"
             spellCheck={false}
             autoComplete="off"
-            disabled={engine.finished}
+            readOnly={engine.finished}
             onChange={(event) => {
               let value = event.target.value;
               event.target.value = "";

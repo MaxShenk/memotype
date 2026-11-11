@@ -25,6 +25,7 @@ export function useVisualViewport(): void {
     viewport?.addEventListener("resize", apply);
     viewport?.addEventListener("scroll", apply);
     window.addEventListener("resize", apply);
+    document.addEventListener("focusout", apply);
     document.addEventListener("gesturestart", blockGesture);
     document.addEventListener("gesturechange", blockGesture);
     document.addEventListener("touchmove", blockPinch, { passive: false });
@@ -32,6 +33,7 @@ export function useVisualViewport(): void {
       viewport?.removeEventListener("resize", apply);
       viewport?.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);
+      document.removeEventListener("focusout", apply);
       document.removeEventListener("gesturestart", blockGesture);
       document.removeEventListener("gesturechange", blockGesture);
       document.removeEventListener("touchmove", blockPinch);
