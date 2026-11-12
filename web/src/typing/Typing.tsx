@@ -9,6 +9,25 @@ type Page = "library" | "edit" | "game" | "scores" | "import";
 const SAMPLE_PASSAGE = `The quick brown fox jumps over the lazy dog.
 Pack my box with five dozen liquor jugs.`;
 
+const SESSION_MODE_KEY = "memotype.typing.sessionMode";
+
+function loadSessionMode(): { mode: string; stanzas: boolean } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_MODE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { mode?: string; stanzas?: boolean };
+    if (parsed.mode !== PRACTICE && parsed.mode !== RECALL) return null;
+    return { mode: parsed.mode, stanzas: Boolean(parsed.stanzas) };
+  } catch {
+    return null;
+  }
+}
+
+function rememberSessionMode(mode: string, stanzas: boolean) {
+  if (mode !== PRACTICE && mode !== RECALL) return;
+  sessionStorage.setItem(SESSION_MODE_KEY, JSON.stringify({ mode, stanzas }));
+}
+
 function words(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -58,6 +77,7 @@ export function Typing() {
   function begin(mode: string, list: SourceRow[], options: { shuffle?: boolean; fresh?: boolean; stanzas?: boolean } = {}) {
     if (list.length === 0) return;
     if (options.fresh) list.forEach((source) => clearTypingPlace(source.id));
+    rememberSessionMode(mode, Boolean(options.stanzas));
     setFresh(Boolean(options.fresh));
     setRun((value) => value + 1);
     setPlaying({ sources: options.shuffle ? shuffleSources(list) : list, index: 0, mode, stanzas: Boolean(options.stanzas) });
@@ -179,8 +199,10 @@ export function Typing() {
           onShuffle={() => setShuffleOn((value) => !value)}
           onOpen={(source) => {
             const saved = loadTypingPlace(source.id);
-            const mode = saved?.mode === RECALL ? RECALL : PRACTICE;
-            begin(mode, [source], { stanzas: typeof saved?.stanza === "number" });
+            const session = loadSessionMode();
+            const mode = session?.mode ?? (saved?.mode === RECALL ? RECALL : PRACTICE);
+            const stanzas = session ? session.stanzas : typeof saved?.stanza === "number";
+            begin(mode, [source], { stanzas });
           }}
           onRestart={(source) => begin(PRACTICE, [source], { fresh: true })}
           onQueue={(mode, stanzas) => begin(mode, sources.filter((source) => selected.has(source.id)), { shuffle: shuffleOn, fresh: true, stanzas })}
@@ -236,8 +258,16 @@ export function Typing() {
             setRun((value) => value + 1);
             setPlaying((current) => current ? { ...current, index } : current);
           }}
-          onMode={(mode) => setPlaying((current) => current ? { ...current, mode } : current)}
-          onStanzas={(stanzas) => setPlaying((current) => current ? { ...current, stanzas } : current)}
+          onMode={(mode) => setPlaying((current) => {
+            if (!current) return current;
+            rememberSessionMode(mode, current.stanzas);
+            return { ...current, mode };
+          })}
+          onStanzas={(stanzas) => setPlaying((current) => {
+            if (!current) return current;
+            rememberSessionMode(current.mode, stanzas);
+            return { ...current, stanzas };
+          })}
           onScores={showScores}
           onBack={exitGame}
           onRestart={() => {
@@ -249,7 +279,7 @@ export function Typing() {
           }}
         />
       )}
-      {page === "scores" && <Scores sources={sources} />}
+      {page === "scores" && <Scores sources={sources} initialSourceId={playing?.sources[playing.index]?.id} />}
     </>
   );
 }
@@ -1126,8 +1156,9 @@ function scoreName(mode: string): string {
   return mode;
 }
 
-function Scores({ sources }: { sources: SourceRow[] }) {
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+function Scores({ sources, initialSourceId }: { sources: SourceRow[]; initialSourceId?: string }) {
+  const starting = sources.some((source) => source.id === initialSourceId) ? initialSourceId ?? "" : sources[0]?.id ?? "";
+  const [sourceId, setSourceId] = useState(starting);
   const [mode, setMode] = useState("all");
   const [rows, setRows] = useState<ScoreRow[]>([]);
 
