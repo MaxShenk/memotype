@@ -18,12 +18,16 @@ create table if not exists public.scores (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   source_id uuid not null references public.sources (id) on delete cascade,
   mode text not null check (mode in ('practice', 'recall', 'stanza-practice', 'stanza-recall')),
-  score integer not null,
+  score double precision not null,
+  reveals integer not null default 0,
   wpm double precision not null,
   accuracy double precision,
   seconds double precision not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.scores alter column score type double precision;
+alter table public.scores add column if not exists reveals integer not null default 0;
 
 alter table public.scores drop constraint if exists scores_mode_check;
 alter table public.scores add constraint scores_mode_check check (mode in ('practice', 'recall', 'stanza-practice', 'stanza-recall'));

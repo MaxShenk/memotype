@@ -19,17 +19,18 @@ describe("practice", () => {
     expect(engine.handleChar("z", 10)).toBe("mistake");
     expect(engine.mistakes).toBe(1);
     expect(engine.pos).toBe(0);
+    expect(engine.score).toBe(-0.25);
     expect(engine.handleChar("a", 10)).toBe("ok");
-    expect(engine.score).toBe(1);
+    expect(engine.score).toBe(0.75);
     engine.backspace();
     expect(engine.pos).toBe(0);
-    expect(engine.score).toBe(0);
+    expect(engine.score).toBe(-0.25);
     expect(engine.handleChar("a", 10)).toBe("ok");
     expect(engine.handleChar("\n", 20)).toBe("ok");
-    expect(engine.score).toBe(1);
+    expect(engine.score).toBe(0.75);
     expect(engine.handleChar("b", 70)).toBe("done");
     expect(engine.finished).toBe(true);
-    expect(engine.score).toBe(2);
+    expect(engine.score).toBe(1.75);
     expect(engine.elapsed(999)).toBe(60);
     expect(engine.wpm(999)).toBeCloseTo(3 / 5);
   });
@@ -70,23 +71,25 @@ describe("recall", () => {
     expect(fresh.handleChar(" ", 1)).toBe("mistake");
   });
 
-  it("scores nothing for a revealed word", () => {
+  it("charges 5 for a reveal and scores none of the rest of that word", () => {
     const engine = new Engine("ab cd", "recall");
     expect(engine.reveal(1)).toBe(true);
     expect(engine.reveal(1)).toBe(true);
     expect(engine.reveals).toBe(1);
+    expect(engine.score).toBe(-5);
     expect(engine.handleChar("a", 2)).toBe("ok");
-    expect(engine.score).toBe(0);
+    expect(engine.score).toBe(-5);
     engine.backspace();
-    expect(engine.score).toBe(0);
+    expect(engine.score).toBe(-5);
     engine.handleChar("a", 3);
     engine.handleChar("b", 4);
     expect(engine.currentWord).toBe("cd");
     expect(engine.revealed).toBe(false);
     engine.handleChar("c", 5);
-    expect(engine.score).toBe(1);
+    expect(engine.score).toBe(-4);
     engine.reveal(6);
     expect(engine.handleChar("d", 7)).toBe("done");
-    expect(engine.score).toBe(1);
+    expect(engine.score).toBe(-9);
+    expect(engine.reveals).toBe(2);
   });
 });

@@ -93,22 +93,34 @@ export async function deleteSource(id: string): Promise<void> {
 
 export async function listScores(sourceId: string): Promise<ScoreRow[]> {
   if (!supabase) return localListScores(sourceId);
+  const columns = "id,source_id,mode,score,wpm,accuracy,seconds,reveals,created_at";
   const { data, error } = await db()
     .from("scores")
-    .select("id,source_id,mode,score,wpm,accuracy,seconds,created_at")
+    .select(columns)
     .eq("source_id", sourceId)
     .order("score", { ascending: false })
     .order("wpm", { ascending: false })
     .order("seconds", { ascending: true })
     .limit(100);
-  if (error) throw error;
-  return data ?? [];
+  if (error) {
+    const fallback = await db()
+      .from("scores")
+      .select("id,source_id,mode,score,wpm,accuracy,seconds,created_at")
+      .eq("source_id", sourceId)
+      .order("score", { ascending: false })
+      .order("wpm", { ascending: false })
+      .order("seconds", { ascending: true })
+      .limit(100);
+    if (fallback.error) throw error;
+    return (fallback.data ?? []).map((row) => ({ ...row, reveals: 0 }));
+  }
+  return (data ?? []).map((row) => ({ ...row, reveals: row.reveals ?? 0 }));
 }
 
 export async function recordScore(entry: Omit<ScoreRow, "id" | "created_at">): Promise<number | null> {
   if (!supabase) return localRecordScore(entry);
   const { error } = await db().from("scores").insert(entry);
-  if (error) throw error;
+  if (error) throw new Error(`${error.message} Paste web/supabase/migrations/2026-11-12-score-penalties-and-reveals.sql into the Supabase SQL editor.`);
   const rows = (await listScores(entry.source_id)).filter((row) => row.mode === entry.mode);
   const match = rows.find(
     (row) => row.mode === entry.mode && row.score === entry.score && Math.abs(row.seconds - entry.seconds) < 0.01,

@@ -9,6 +9,7 @@ export type ScoreRow = {
   wpm: number;
   accuracy: number | null;
   seconds: number;
+  reveals: number;
   created_at: string;
 };
 export type DeckRow = { id: string; name: string; builtin_key: string | null; user_id: string | null };

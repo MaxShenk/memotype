@@ -1,7 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import { useAppChrome } from "../App";
 import { deleteSource, ensureSample, listScores, listSources, recordScore, saveSource, type ScoreRow, type SourceRow } from "../lib/db";
-import { Engine, PRACTICE, RECALL, scoreMode, stanzasOf } from "../lib/engine";
+import { Engine, PRACTICE, RECALL, formatPoints, scoreMode, stanzasOf } from "../lib/engine";
 import { clearTypingPlace, loadTypingPlace, saveTypingPlace } from "../lib/typingPlace";
 
 type Page = "library" | "edit" | "game" | "scores" | "import";
@@ -678,6 +678,7 @@ function Game({
       source_id: source.id,
       mode: scoreMode(engine.mode, activeStanzas),
       score: engine.score,
+      reveals: engine.reveals,
       wpm: engine.wpm(Date.now() / 1000),
       accuracy: engine.accuracy(),
       seconds,
@@ -736,7 +737,7 @@ function Game({
   const wpm = elapsed >= 1 ? Math.round(engine.wpm(now)) : null;
   const accuracy = engine.accuracy();
   const summary = [
-    `${engine.score} points`,
+    `${formatPoints(engine.score)} points`,
     wpm === null ? "" : `${wpm} WPM`,
     accuracy === null ? "" : `${Math.round(accuracy)}%`,
     shownRank === undefined ? "Saving…" : shownRank ? `Rank ${shownRank}` : "Saved",
@@ -784,7 +785,7 @@ function Game({
       </button>
       <span className="crumb-current">{source.name}</span>
       <span className="play-stat">{clock(elapsed)}</span>
-      <span className="play-stat">{engine.score} pts</span>
+      <span className="play-stat">{formatPoints(engine.score)} pts</span>
       <button
         type="button"
         className="icon-button"
@@ -836,7 +837,7 @@ function Game({
         <span>{engine.mode === PRACTICE ? "Practice" : "Recall"}{activeStanzas ? " · Stanzas" : ""}</span>
         <span>{where}</span>
         <span>{clock(elapsed)}</span>
-        <span>{engine.score} pts</span>
+        <span>{formatPoints(engine.score)} pts</span>
         <span>{wpm === null ? "—" : `${wpm} WPM`}</span>
         <span>{accuracy === null ? "—" : `${Math.round(accuracy)}%`}</span>
         <div className="icon-pair">
@@ -1156,13 +1157,13 @@ function Scores({ sources }: { sources: SourceRow[] }) {
           </button>
         ))}
       </div>
-      <p className="muted">1 point per correct character. Spaces do not score. Revealed recall characters score 0.</p>
+      <p className="muted">1 point per correct character. A miss is −0.25. A reveal is −5, and the rest of that word scores nothing.</p>
       {shown.length === 0 && <p className="muted">No scores yet.</p>}
       {shown.map((row, index) => (
         <div className="score-line" key={row.id}>
           <span>{index + 1}</span>
-          <span>{scoreName(row.mode)} · {Math.round(row.wpm)} WPM · {row.accuracy === null ? "—" : `${Math.round(row.accuracy)}%`}</span>
-          <strong>{row.score}</strong>
+          <span>{scoreName(row.mode)} · {Math.round(row.wpm)} WPM · {row.accuracy === null ? "—" : `${Math.round(row.accuracy)}%`} · {row.reveals ?? 0} revealed</span>
+          <strong>{formatPoints(row.score)}</strong>
         </div>
       ))}
     </section>

@@ -88,6 +88,7 @@ export function localDeleteSource(sourceId: string): void {
 export function localListScores(sourceId: string): ScoreRow[] {
   return read()
     .scores.filter((row) => row.source_id === sourceId)
+    .map((row) => ({ ...row, reveals: row.reveals ?? 0 }))
     .sort((a, b) => b.score - a.score || b.wpm - a.wpm || a.seconds - b.seconds)
     .slice(0, 100);
 }

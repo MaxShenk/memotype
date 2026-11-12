@@ -2,6 +2,13 @@
 
 export const PRACTICE = "practice";
 export const RECALL = "recall";
+export const MISTAKE_COST = 0.25;
+export const REVEAL_COST = 5;
+
+export function formatPoints(score: number): string {
+  const rounded = Math.round(score * 100) / 100;
+  return String(rounded);
+}
 
 const CURLY: Record<string, string> = {
   "\u2018": "'",
@@ -135,6 +142,7 @@ export class Engine {
     const expected = this.text[this.pos];
     if (ch !== expected) {
       this.mistakes += 1;
+      this.score -= MISTAKE_COST;
       return "mistake";
     }
     this.pos += 1;
@@ -151,6 +159,7 @@ export class Engine {
     const index = this.typed.length;
     if (ch !== word[index]) {
       this.mistakes += 1;
+      this.score -= MISTAKE_COST;
       return "mistake";
     }
     this.typed += ch;
@@ -175,7 +184,7 @@ export class Engine {
       if (this.pos === 0) return;
       this.pos -= 1;
       this.correctKeystrokes = Math.max(0, this.correctKeystrokes - 1);
-      if (!isSpace(this.text[this.pos])) this.score = Math.max(0, this.score - 1);
+      if (!isSpace(this.text[this.pos])) this.score -= 1;
       return;
     }
     if (!this.typed) return;
@@ -183,7 +192,7 @@ export class Engine {
     this.correctKeystrokes = Math.max(0, this.correctKeystrokes - 1);
     if (this.typedScored > this.typed.length) {
       this.typedScored -= 1;
-      this.score = Math.max(0, this.score - 1);
+      this.score -= 1;
     }
   }
 
@@ -193,6 +202,7 @@ export class Engine {
     if (!this.revealed) {
       this.revealed = true;
       this.reveals += 1;
+      this.score -= REVEAL_COST;
     }
     return true;
   }
@@ -216,7 +226,7 @@ export class Engine {
     this.pos = Math.min(Math.max(0, Math.floor(snapshot.pos)), this.text.length);
     this.typed = snapshot.typed ?? "";
     this.typedScored = Math.max(0, snapshot.typedScored ?? 0);
-    this.score = Math.max(0, snapshot.score ?? 0);
+    this.score = snapshot.score ?? 0;
     this.mistakes = Math.max(0, snapshot.mistakes ?? 0);
     this.reveals = Math.max(0, snapshot.reveals ?? 0);
     this.correctKeystrokes = Math.max(0, snapshot.correctKeystrokes ?? 0);

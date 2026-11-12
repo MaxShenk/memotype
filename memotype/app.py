@@ -354,7 +354,7 @@ class MemoTypeApp(ctk.CTk):
             text=(
                 "Type what you see. A wrong key is marked and does not advance. Backspace steps back."
                 if mode == PRACTICE
-                else "Type the next word from memory. Backspace edits it. Ctrl+R reveals it, then you still type it. Revealed characters score nothing."
+                else "Type the next word from memory. Backspace edits it. Ctrl+R reveals the word, costs 5, and the rest of that word scores nothing."
             )
         )
         if mode == RECALL:
@@ -1215,7 +1215,7 @@ class MemoTypeApp(ctk.CTk):
             runs = [run for run in runs if run.get("mode") == RECALL]
         note = ctk.CTkLabel(
             self.score_table,
-            text="One point per correct character you type from the words. Spaces are free. In recall, a revealed word still has to be typed and scores nothing.",
+            text="One point per correct character. A miss costs 0.25. A reveal costs 5, and the rest of that word scores nothing.",
             text_color=MUTED,
             font=_font(12),
             wraplength=860,

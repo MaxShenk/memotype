@@ -45,7 +45,7 @@ class ScoreStore:
     def record(self, filename: str, entry: dict) -> dict:
         data = self._load()
         runs = [run for run in data.get(filename, []) if isinstance(run, dict)]
-        previous_scores = [int(run.get("score", 0)) for run in runs]
+        previous_scores = [float(run.get("score", 0)) for run in runs]
         previous_best = max(previous_scores) if previous_scores else None
         stored = dict(entry)
         stored["id"] = uuid4().hex
@@ -54,7 +54,7 @@ class ScoreStore:
         rank = next(index for index, run in enumerate(runs, start=1) if run.get("id") == stored["id"])
         data[filename] = runs[:LIMIT]
         self._save(data)
-        score = int(stored.get("score", 0))
+        score = float(stored.get("score", 0))
         if previous_best is None or score > previous_best:
             standing = "best"
         elif score == previous_best:

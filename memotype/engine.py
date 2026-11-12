@@ -32,8 +32,8 @@ class Engine:
 
     Practice shows the whole passage. A wrong key is rejected and counted.
     Recall hides every unfinished word. Whitespace is inserted for you after
-    a word is finished. Ctrl+R marks the current word as revealed: it still
-    has to be typed, and those characters do not add points.
+    a word is finished. A wrong key costs 0.25. Ctrl+R reveals the current
+    word for 5 points: it still has to be typed, and those characters add none.
     """
 
     def __init__(self, text: str, mode: str):
@@ -146,6 +146,7 @@ class Engine:
         expected = self.text[self.pos]
         if ch != expected:
             self.mistakes += 1
+            self.score -= 0.25
             return "mistake"
         self.pos += 1
         self.correct_keystrokes += 1
@@ -166,6 +167,7 @@ class Engine:
         index = len(self.typed)
         if ch != word[index]:
             self.mistakes += 1
+            self.score -= 0.25
             return "mistake"
         self.typed += ch
         self.correct_keystrokes += 1
@@ -192,7 +194,7 @@ class Engine:
             self.pos -= 1
             self.correct_keystrokes = max(0, self.correct_keystrokes - 1)
             if not self.text[self.pos].isspace():
-                self.score = max(0, self.score - 1)
+                self.score -= 1
             return
         if not self.typed:
             return
@@ -200,7 +202,7 @@ class Engine:
         self.correct_keystrokes = max(0, self.correct_keystrokes - 1)
         if self.typed_scored > len(self.typed):
             self.typed_scored -= 1
-            self.score = max(0, self.score - 1)
+            self.score -= 1
 
     def reveal(self, now: float) -> bool:
         """Reveal the current recall word. Returns True when a word is showing."""
@@ -210,4 +212,5 @@ class Engine:
         if not self.revealed:
             self.revealed = True
             self.reveals += 1
+            self.score -= 5
         return True
