@@ -12,7 +12,13 @@ export type ScoreRow = {
   reveals: number;
   created_at: string;
 };
-export type DeckRow = { id: string; name: string; builtin_key: string | null; user_id: string | null };
+export type DeckRow = {
+  id: string;
+  name: string;
+  builtin_key: string | null;
+  user_id: string | null;
+  vocabulary: boolean;
+};
 
 export function sanitizeName(name: string): string {
   const cleaned = name.trim().replace(/\s+/g, " ").slice(0, 80);

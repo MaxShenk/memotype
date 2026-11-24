@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppChrome } from "../App";
 import {
   deleteDeck,
@@ -11,6 +11,7 @@ import {
   saveDeck,
   saveStat,
   sanitizeName,
+  setDeckVocabulary,
   type DeckRow,
 } from "../lib/db";
 import {
@@ -35,6 +36,7 @@ import {
   saveGlobalPractice,
   savePlace,
 } from "../lib/prefs";
+import { OFFLINE_MESSAGE, UNAVAILABLE_MESSAGE, gradeSentence } from "../lib/sentence";
 import { DictionaryDeck } from "./Dictionary";
 
 type Page = "quiz" | "decks" | "progress" | "import" | "dictionary";
@@ -213,6 +215,11 @@ export function Flash() {
               setSessionKey((value) => value + 1);
             }
           }}
+          onVocabulary={async (row, vocabulary) => {
+            await setDeckVocabulary(row.id, vocabulary);
+            await refresh();
+            if (deck?.id === row.id) setDeck({ ...row, vocabulary });
+          }}
         />
       )}
       {page === "import" && (
@@ -368,12 +375,14 @@ function Decks({
   onCardsChanged,
   onDelete,
   onReset,
+  onVocabulary,
 }: {
   decks: DeckRow[];
   onOpen: (row: DeckRow, how?: "resume" | "restart") => void;
   onCardsChanged: (id: string) => Promise<void>;
   onDelete: (row: DeckRow) => Promise<void>;
   onReset: (row: DeckRow) => Promise<void>;
+  onVocabulary: (row: DeckRow, vocabulary: boolean) => Promise<void>;
 }) {
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<DeckRow | null>(null);
@@ -459,13 +468,22 @@ function Decks({
           <button type="button" className="deck-open" onClick={() => onOpen(row, "resume")}>
             <span>
               <strong>{row.name}</strong>
-              <span className="faint">{row.builtin_key ? "Built-in" : "Your deck"}{place ? ` · Card ${place}` : ""}</span>
+              <span className="faint">{row.builtin_key ? "Built-in" : "Your deck"}{row.vocabulary ? " · Vocabulary" : ""}{place ? ` · Card ${place}` : ""}</span>
             </span>
             <span className="deck-chevron" aria-hidden="true">›</span>
           </button>
           <div className="actions">
             {place && <button className="primary" onClick={() => onOpen(row, "resume")}>Resume</button>}
             {place && <button onClick={() => onOpen(row, "restart")}>Restart</button>}
+            {!row.builtin_key && (
+              <button
+                type="button"
+                aria-pressed={row.vocabulary}
+                onClick={() => onVocabulary(row, !row.vocabulary).catch((reason: Error) => setMessage(reason.message))}
+              >
+                {row.vocabulary ? "Vocabulary" : "Mark as vocabulary"}
+              </button>
+            )}
             {!row.builtin_key && <button onClick={() => startEdit(row)}>Edit</button>}
             {!row.builtin_key && (
               <label className="file-button">
@@ -573,16 +591,24 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
   const [custom, setCustom] = useState(false);
   const [pagerOpen, setPagerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const focusField = useCallback((node: HTMLInputElement | HTMLTextAreaElement | null) => {
+    inputRef.current = node;
+  }, []);
   const phoneMenuRef = useRef<HTMLDivElement>(null);
   const focusAnswer = useRef(false);
   const [phoneMenu, setPhoneMenu] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [busy, setBusy] = useState(false);
+  const [reason, setReason] = useState("");
+  const [override, setOverride] = useState(false);
   const chrome = useAppChrome();
 
   const activeCount = cards.filter((card) => cardEnabled(card)).length;
   if (deck && progress && cards.length && activeCount > 0 && sessionRef.current?.deckId !== deck.id) {
     const loaded = loadPractice(deck.id);
-    const next = new Session(deck.id, cards, progress, undefined, loaded.prefs);
+    const prefs = deck.vocabulary ? loaded.prefs : { ...loaded.prefs, sentences: false };
+    const next = new Session(deck.id, cards, progress, undefined, prefs);
     if (launch === "resume") {
       const place = loadPlace(deck.id);
       if (place) next.jumpTo(place);
@@ -594,6 +620,17 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
 
   useEffect(() => () => {
     if (timer.current) window.clearTimeout(timer.current);
+  }, []);
+
+  useEffect(() => {
+    function on() { setOnline(true); }
+    function off() { setOnline(false); }
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
   }, []);
 
   useEffect(() => {
@@ -662,7 +699,7 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     const result = session?.jumpTo(number);
     cancelAdvance();
     if (result === "ok") {
-      setNotice("");
+      clearGrade();
       setAnswer("");
       focusAnswer.current = true;
       inputRef.current?.focus();
@@ -675,11 +712,13 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
   }
 
   function prefsFrom(): PracticePrefs {
+    const stored = deck && custom ? loadPractice(deck.id).prefs : loadGlobalPractice();
     return {
       mode: session?.mode ?? STANDARD,
       chunkSize: session?.chunkSize ?? 10,
       shuffle: session?.shuffle ?? false,
       startWithTerm: session?.startWithTerm ?? true,
+      sentences: deck?.vocabulary ? Boolean(session?.sentences) : stored.sentences,
     };
   }
 
@@ -696,7 +735,7 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     change();
     remember();
     setAnswer("");
-    setNotice("");
+    clearGrade();
     bump();
   }
 
@@ -704,10 +743,11 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     if (!deck || !session) return;
     clearDeckPractice(deck.id);
     cancelAdvance();
-    session.applyPractice(loadGlobalPractice());
+    const prefs = loadGlobalPractice();
+    session.applyPractice(deck.vocabulary ? prefs : { ...prefs, sentences: false });
     setCustom(false);
     setAnswer("");
-    setNotice("");
+    clearGrade();
     bump();
   }
 
@@ -723,7 +763,7 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     clearPlace(deck.id);
     session.restart();
     setAnswer("");
-    setNotice("");
+    clearGrade();
     setJump("");
     bump();
   }
@@ -732,15 +772,87 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     if (!session) return;
     cancelAdvance();
     if (session.step(delta) !== "ok") return;
-    setNotice("");
+    clearGrade();
     setAnswer("");
     setJump("");
     focusAnswer.current = true;
     bump();
   }
 
+  function clearGrade() {
+    setNotice("");
+    setReason("");
+    setOverride(false);
+  }
+
+  async function checkSentence() {
+    if (!session || session.checked || busy) return;
+    if (!navigator.onLine) {
+      setOnline(false);
+      return;
+    }
+    const index = session.currentIndex();
+    const card = session.currentCard();
+    setBusy(true);
+    clearGrade();
+    const result = await gradeSentence(card.term, card.definition, answer);
+    setBusy(false);
+    if (session.currentIndex() !== index || session.checked) return;
+    if (result.status === "offline") {
+      setOnline(false);
+      return;
+    }
+    if (result.status === "unavailable") {
+      setNotice(UNAVAILABLE_MESSAGE);
+      setOverride(true);
+      bump();
+      return;
+    }
+    if (result.status === "miss") setReason(result.reason);
+    const outcome = session.recordSentence(result.status === "pass", Date.now());
+    if (outcome === "correct") {
+      cancelAdvance();
+      timer.current = window.setTimeout(() => {
+        session.advance("");
+        setAnswer("");
+        setReason("");
+        focusAnswer.current = true;
+        bump();
+      }, 650);
+    }
+    bump();
+  }
+
+  function trySentenceAgain() {
+    if (!session) return;
+    cancelAdvance();
+    session.reopen();
+    setReason("");
+    focusAnswer.current = true;
+    bump();
+  }
+
+  function countAnyway() {
+    if (!session) return;
+    cancelAdvance();
+    session.countSentence(Date.now());
+    setAnswer("");
+    clearGrade();
+    focusAnswer.current = true;
+    bump();
+  }
+
   function check() {
     if (!session || session.checked) return;
+    if (session.sentences) {
+      checkSentence().catch(() => {
+        setBusy(false);
+        setNotice(UNAVAILABLE_MESSAGE);
+        setOverride(true);
+        bump();
+      });
+      return;
+    }
     setNotice("");
     const outcome = session.check(answer, Date.now());
     if (outcome === "correct") {
@@ -759,14 +871,37 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
     if (!session || !session.checked || session.wasCorrect) return;
     cancelAdvance();
     session.advance(session.expectedText());
-    setNotice("");
+    clearGrade();
     setAnswer("");
     focusAnswer.current = true;
     bump();
   }
 
   const reveal = !session.showingTerm() && session.currentCard().image ? session.currentCard().image : "";
+  const sentences = session.sentences && deck.vocabulary;
+  const offlineSentences = sentences && !online;
+  const sentenceMiss = sentences && session.checked && !session.wasCorrect;
   void tick;
+
+  function sentenceControl() {
+    if (!deck?.vocabulary) return null;
+    return (
+      <>
+        <button
+          type="button"
+          aria-pressed={session?.sentences}
+          disabled={!online && !session?.sentences}
+          onClick={() => {
+            if (!session || (!online && !session.sentences)) return;
+            tune(() => session.setSentences(!session.sentences));
+          }}
+        >
+          Sentences
+        </button>
+        {!online && <p className="bad">{OFFLINE_MESSAGE}</p>}
+      </>
+    );
+  }
 
   return (
     <>
@@ -804,6 +939,7 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
               <button key={value} type="button" aria-pressed={session.mode === value} onClick={() => tune(() => session.setMode(value))}>{label}</button>
             ))}
           </div>
+          {sentenceControl()}
           <label>
             Chunk
             <input
@@ -867,6 +1003,7 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
                 <button key={value} type="button" aria-pressed={session.mode === value} onClick={() => tune(() => session.setMode(value))}>{label}</button>
               ))}
             </div>
+            {sentenceControl()}
             <label>
               Chunk
               <input
@@ -891,55 +1028,95 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
         )}
       </div>
       <article className="card prompt">
-        {session.checked && (
+        {session.checked && !offlineSentences && (
           <div className={session.wasCorrect ? "verdict ok" : "verdict miss"} aria-live="polite">
             <span className="verdict-mark" aria-hidden="true">{session.wasCorrect ? "✓" : "✕"}</span>
-            <span>{session.wasCorrect ? "Correct" : session.expectedText()}</span>
-            {!session.wasCorrect && reveal && <img src={reveal} alt="" />}
+            <span>{session.wasCorrect ? "Correct" : sentences ? reason : session.expectedText()}</span>
+            {!session.wasCorrect && !sentences && reveal && <img src={reveal} alt="" />}
           </div>
         )}
-        <p className="muted">{session.showingTerm() ? "TERM" : "DEFINITION"}</p>
+        <p className="muted">{sentences ? "WORD" : session.showingTerm() ? "TERM" : "DEFINITION"}</p>
         <div className="prompt-body">
-          {session.promptImage() && (
+          {!sentences && session.promptImage() && (
             <div className="frame">
               <img src={session.promptImage()} alt="" />
             </div>
           )}
-          <div>{session.promptText() || "Picture"}</div>
+          <div>{sentences ? (session.currentCard().term || "This card has no word.") : (session.promptText() || "Picture")}</div>
         </div>
+        {sentences && session.currentCard().definition && <p>{session.currentCard().definition}</p>}
       </article>
       <div className="card answer">
-        <div className="type-row">
-          <label className="type-field">
-            <span className="type-label">{session.showingTerm() ? "Type the definition" : "Type the term"}</span>
-            <input
-              ref={inputRef}
-              value={answer}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              autoComplete="off"
-              readOnly={session.checked && session.wasCorrect}
-              onChange={(event) => setAnswer(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  if (!session.checked) check();
-                  else continueAfterMiss();
-                }
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className="primary"
-            onClick={session.checked ? continueAfterMiss : check}
-            disabled={session.checked && session.wasCorrect}
-          >
-            {session.checked && !session.wasCorrect ? "Next" : "Check"}
-          </button>
-        </div>
-        {notice && <p className="bad">{notice}</p>}
+        {offlineSentences ? (
+          <p className="bad" role="status">{OFFLINE_MESSAGE}</p>
+        ) : (
+          <>
+            <div className="type-row">
+              <label className="type-field">
+                <span className="type-label">{sentences ? "Use this word in a sentence" : session.showingTerm() ? "Type the definition" : "Type the term"}</span>
+                {sentences ? (
+                  <textarea
+                    ref={focusField}
+                    className="sentence-box"
+                    value={answer}
+                    autoCapitalize="off"
+                    autoCorrect="on"
+                    spellCheck
+                    autoComplete="off"
+                    readOnly={session.checked && session.wasCorrect}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        if (!session.checked) check();
+                        else if (sentenceMiss) trySentenceAgain();
+                        else continueAfterMiss();
+                      }
+                    }}
+                  />
+                ) : (
+                  <input
+                    ref={focusField}
+                    value={answer}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                    readOnly={session.checked && session.wasCorrect}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (!session.checked) check();
+                        else continueAfterMiss();
+                      }
+                    }}
+                  />
+                )}
+              </label>
+              <button
+                type="button"
+                className="primary"
+                onClick={session.checked ? (sentenceMiss ? trySentenceAgain : continueAfterMiss) : check}
+                disabled={busy || (session.checked && session.wasCorrect)}
+              >
+                {busy ? "Checking…" : sentenceMiss ? "Try again" : session.checked && !session.wasCorrect ? "Next" : "Check"}
+              </button>
+            </div>
+            {sentenceMiss && (
+              <div className="actions">
+                <button type="button" onClick={continueAfterMiss}>Next</button>
+                <button type="button" onClick={countAnyway}>Count it anyway</button>
+              </div>
+            )}
+            {override && !session.checked && (
+              <div className="actions">
+                <button type="button" onClick={countAnyway}>Count it anyway</button>
+              </div>
+            )}
+            {notice && <p className="bad" role="status">{notice}</p>}
+          </>
+        )}
       </div>
       {pagerOpen && <button type="button" className="sheet-backdrop" aria-label="Close card jump" onClick={() => setPagerOpen(false)} />}
       <div className="sheet-dock" ref={menuRef}>

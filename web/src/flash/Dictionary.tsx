@@ -73,7 +73,7 @@ export function DictionaryDeck({
     setError("");
     try {
       const cards = drawLexemes(pool, count).map(lexemeCard);
-      const result = await importDeck(clean || autoName, cards);
+      const result = await importDeck(clean || autoName, cards, true);
       saveDeckPractice(result.id, { ...DEFAULT_PRACTICE, startWithTerm: false });
       await onCreated(result.id);
     } catch (reason) {

@@ -19,12 +19,12 @@ beforeEach(() => {
 describe("practice prefs", () => {
   it("uses the global default until a deck overrides it", () => {
     expect(loadPractice("deck-a")).toEqual({
-      prefs: { mode: CHUNKING, chunkSize: 10, shuffle: true, startWithTerm: true },
+      prefs: { mode: CHUNKING, chunkSize: 10, shuffle: true, startWithTerm: true, sentences: false },
       custom: false,
     });
-    saveGlobalPractice({ mode: STANDARD, chunkSize: 5, shuffle: false, startWithTerm: false });
+    saveGlobalPractice({ mode: STANDARD, chunkSize: 5, shuffle: false, startWithTerm: false, sentences: false });
     expect(loadPractice("deck-a").prefs.mode).toBe(STANDARD);
-    saveDeckPractice("deck-a", { mode: CHUNKING, chunkSize: 3, shuffle: true, startWithTerm: true });
+    saveDeckPractice("deck-a", { mode: CHUNKING, chunkSize: 3, shuffle: true, startWithTerm: true, sentences: false });
     expect(loadPractice("deck-a")).toMatchObject({ custom: true, prefs: { chunkSize: 3 } });
     expect(loadPractice("deck-b").prefs.mode).toBe(STANDARD);
     clearDeckPractice("deck-a");

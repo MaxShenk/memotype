@@ -9,6 +9,7 @@ export type PracticePrefs = {
   chunkSize: number;
   shuffle: boolean;
   startWithTerm: boolean;
+  sentences: boolean;
 };
 
 export const DEFAULT_PRACTICE: PracticePrefs = {
@@ -16,6 +17,7 @@ export const DEFAULT_PRACTICE: PracticePrefs = {
   chunkSize: 10,
   shuffle: true,
   startWithTerm: true,
+  sentences: false,
 };
 
 export type Card = { term: string; definition: string; image: string; enabled?: boolean };
@@ -45,6 +47,7 @@ export function cardWeight(errors: number, corrects: number): number {
 export interface Progress {
   get(deckId: string, key: string): Stats;
   record(deckId: string, key: string, correct: boolean, nowMs: number): void;
+  flipMiss(deckId: string, key: string, nowMs: number): void;
 }
 
 export interface Rng {
@@ -180,6 +183,17 @@ export class MemoryProgress implements Progress {
     this.persist(key, next);
   }
 
+  flipMiss(deckId: string, key: string, nowMs: number): void {
+    const current = this.get(deckId, key);
+    const next = {
+      e: Math.max(0, current.e - 1),
+      c: current.c + 1,
+      ls: nowMs,
+    };
+    this.stats.set(key, next);
+    this.persist(key, next);
+  }
+
   totals(): [number, number] {
     let corrects = 0;
     let errors = 0;
@@ -195,6 +209,7 @@ export class Session {
   mode = STANDARD;
   chunkSize = 10;
   startWithTerm = true;
+  sentences = false;
   shuffle = false;
   sessionMistakes = 0;
   cardMistakes: Record<number, number> = {};
@@ -222,6 +237,7 @@ export class Session {
       if (size >= 1) this.chunkSize = size;
       this.shuffle = practice.shuffle;
       this.startWithTerm = practice.startWithTerm;
+      this.sentences = practice.sentences;
     }
     this.restart();
   }
@@ -266,6 +282,14 @@ export class Session {
   setStartWithTerm(startWithTerm: boolean): void {
     if (this.startWithTerm === startWithTerm) return;
     this.startWithTerm = startWithTerm;
+    this.checked = false;
+    this.wasCorrect = false;
+    this.correctionRequired = false;
+  }
+
+  setSentences(sentences: boolean): void {
+    if (this.sentences === sentences) return;
+    this.sentences = sentences;
     this.checked = false;
     this.wasCorrect = false;
     this.correctionRequired = false;
@@ -388,6 +412,7 @@ export class Session {
     this.setChunkSize(prefs.chunkSize);
     this.setShuffle(prefs.shuffle);
     this.setStartWithTerm(prefs.startWithTerm);
+    this.setSentences(prefs.sentences);
     this.setMode(prefs.mode);
   }
 
@@ -395,6 +420,52 @@ export class Session {
     const expected = normalizeAnswer(this.expectedText());
     const given = normalizeAnswer(typed);
     return Boolean(given) && given === expected;
+  }
+
+  recordSentence(correct: boolean, nowMs: number): "correct" | "wrong" | "already" {
+    if (this.checked) return "already";
+    const card = this.currentCard();
+    this.progress.record(this.deckId, cardKey(card), correct, nowMs);
+    this.checked = true;
+    this.wasCorrect = correct;
+    this.correctionRequired = false;
+    if (correct) {
+      if (this.mode === CHUNKING) this.mastered.add(this.currentIndex());
+      return "correct";
+    }
+    const index = this.currentIndex();
+    this.sessionMistakes += 1;
+    this.cardMistakes[index] = (this.cardMistakes[index] ?? 0) + 1;
+    return "wrong";
+  }
+
+  reopen(): void {
+    if (!this.checked || this.wasCorrect) return;
+    this.checked = false;
+    this.wasCorrect = false;
+    this.correctionRequired = false;
+  }
+
+  countSentence(nowMs: number): "advanced" | "idle" {
+    if (this.checked && this.wasCorrect) return "idle";
+    const card = this.currentCard();
+    const key = cardKey(card);
+    const index = this.currentIndex();
+    if (this.checked) {
+      this.progress.flipMiss(this.deckId, key, nowMs);
+      this.sessionMistakes = Math.max(0, this.sessionMistakes - 1);
+      const left = (this.cardMistakes[index] ?? 1) - 1;
+      if (left <= 0) delete this.cardMistakes[index];
+      else this.cardMistakes[index] = left;
+    } else {
+      this.progress.record(this.deckId, key, true, nowMs);
+    }
+    if (this.mode === CHUNKING) this.mastered.add(index);
+    this.goNext();
+    this.checked = false;
+    this.wasCorrect = false;
+    this.correctionRequired = false;
+    return "advanced";
   }
 
   check(typed: string, nowMs: number): string {

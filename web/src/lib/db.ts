@@ -6,6 +6,7 @@ import {
   localEnsureSample,
   localImportDeck,
   localListDecks,
+  localSetVocabulary,
   localListScores,
   localListSources,
   localLoadCards,
@@ -130,28 +131,56 @@ export async function recordScore(entry: Omit<ScoreRow, "id" | "created_at">): P
   return rank > 0 && rank <= 100 ? rank : null;
 }
 
-export async function listDecks(): Promise<DeckRow[]> {
-  if (!supabase) return localListDecks();
-  const { data, error } = await db().from("decks").select("id,name,builtin_key,user_id").order("name");
-  if (error) throw error;
-  const rows = data ?? [];
-  rows.sort((a, b) => Number(b.builtin_key != null) - Number(a.builtin_key != null) || a.name.localeCompare(b.name));
-  return rows;
+function sortDecks(rows: DeckRow[]): DeckRow[] {
+  return rows.slice().sort((a, b) => Number(b.builtin_key != null) - Number(a.builtin_key != null) || a.name.localeCompare(b.name));
 }
 
-export async function importDeck(name: string, raw: unknown): Promise<{ id: string; updated: boolean }> {
+function vocabularyColumnError(error: { message: string }): Error {
+  if (/vocabulary/i.test(error.message) && /column/i.test(error.message)) {
+    return new Error("Run this in the Supabase SQL editor, then try again: alter table public.decks add column if not exists vocabulary boolean not null default false;");
+  }
+  return error instanceof Error ? error : new Error(error.message);
+}
+
+export async function listDecks(): Promise<DeckRow[]> {
+  if (!supabase) return localListDecks();
+  const first = await db().from("decks").select("id,name,builtin_key,user_id,vocabulary").order("name");
+  if (first.error && /vocabulary/i.test(first.error.message) && /column/i.test(first.error.message)) {
+    const second = await db().from("decks").select("id,name,builtin_key,user_id").order("name");
+    if (second.error) throw second.error;
+    return sortDecks((second.data ?? []).map((row) => ({ ...row, vocabulary: false })));
+  }
+  if (first.error) throw first.error;
+  return sortDecks((first.data ?? []).map((row) => ({ ...row, vocabulary: row.vocabulary === true })));
+}
+
+export async function importDeck(name: string, raw: unknown, vocabulary = false): Promise<{ id: string; updated: boolean }> {
   const cards = parseDeck(raw);
   const clean = sanitizeName(name);
-  if (!supabase) return localImportDeck(clean, raw);
+  if (!supabase) return localImportDeck(clean, raw, vocabulary);
   const existing = (await listDecks()).find((row) => !row.builtin_key && row.name.toLowerCase() === clean.toLowerCase());
   if (existing) {
+    if (vocabulary) {
+      const marked = await db().from("decks").update({ vocabulary: true, updated_at: new Date().toISOString() }).eq("id", existing.id);
+      if (marked.error) throw vocabularyColumnError(marked.error);
+    }
     await writeCards(existing.id, cards);
     return { id: existing.id, updated: true };
   }
-  const { data, error } = await db().from("decks").insert({ name: clean }).select("id").single();
-  if (error) throw error;
+  const { data, error } = await db().from("decks").insert({ name: clean, vocabulary }).select("id").single();
+  if (error) throw vocabularyColumnError(error);
   await writeCards(data.id as string, cards);
   return { id: data.id as string, updated: false };
+}
+
+export async function setDeckVocabulary(id: string, vocabulary: boolean): Promise<void> {
+  if (!supabase) {
+    localSetVocabulary(id, vocabulary);
+    return;
+  }
+  await assertMutable(id);
+  const updated = await db().from("decks").update({ vocabulary, updated_at: new Date().toISOString() }).eq("id", id);
+  if (updated.error) throw vocabularyColumnError(updated.error);
 }
 
 export async function saveDeck(id: string, name: string, cards: Card[]): Promise<void> {

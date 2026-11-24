@@ -207,4 +207,20 @@ describe("session", () => {
     expect(session.checked).toBe(false);
     expect(session.currentIndex()).toBe(0);
   });
+
+  it("records a sentence miss and can count it as correct", () => {
+    const progress = new MemoryProgress("deck");
+    const session = new Session("deck", cards, progress, undefined, { ...DEFAULT_PRACTICE, sentences: true, shuffle: false });
+    expect(session.sentences).toBe(true);
+    expect(session.currentIndex()).toBe(0);
+    expect(session.recordSentence(false, 5)).toBe("wrong");
+    expect(progress.get("deck", cardKey(cards[0]))).toMatchObject({ e: 1, c: 0 });
+    session.reopen();
+    expect(session.checked).toBe(false);
+    expect(session.recordSentence(false, 6)).toBe("wrong");
+    expect(session.countSentence(7)).toBe("advanced");
+    expect(progress.get("deck", cardKey(cards[0]))).toMatchObject({ e: 1, c: 1 });
+    expect(session.sessionMistakes).toBe(1);
+    expect(session.currentIndex()).not.toBe(0);
+  });
 });

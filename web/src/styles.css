@@ -55,6 +55,8 @@ textarea.type-line {
   line-height: 20px;
 }
 
+textarea.sentence-box { min-height: 72px; }
+
 .app {
   position: fixed;
   top: var(--app-offset, 0px);

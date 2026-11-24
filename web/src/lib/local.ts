@@ -109,23 +109,27 @@ export function localListDecks(): DeckRow[] {
     name: "Country capitals",
     builtin_key: "country-capitals",
     user_id: null,
+    vocabulary: false,
   };
-  const mine = read().decks.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const mine = read().decks
+    .map((row) => ({ ...row, vocabulary: row.vocabulary === true }))
+    .sort((a, b) => a.name.localeCompare(b.name));
   return [builtin, ...mine];
 }
 
-export function localImportDeck(name: string, raw: unknown): { id: string; updated: boolean } {
+export function localImportDeck(name: string, raw: unknown, vocabulary = false): { id: string; updated: boolean } {
   const cards = parseDeck(raw);
   const store = read();
   const clean = sanitizeName(name);
   const existing = store.decks.find((row) => row.name.toLowerCase() === clean.toLowerCase());
   if (existing) {
+    if (vocabulary) existing.vocabulary = true;
     replaceStoredCards(store, existing.id, cards);
     write(store);
     return { id: existing.id, updated: true };
   }
   const deckId = id();
-  store.decks.push({ id: deckId, name: clean, builtin_key: null, user_id: "local" });
+  store.decks.push({ id: deckId, name: clean, builtin_key: null, user_id: "local", vocabulary });
   cards.forEach((card, position) => {
     store.cards.push({ ...card, deck_id: deckId, position, card_key: cardKey(card) });
   });
@@ -163,6 +167,15 @@ function replaceStoredCards(store: Store, deckId: string, cards: Card[]): void {
   cards.forEach((card, position) => {
     store.cards.push({ ...card, deck_id: deckId, position, card_key: cardKey(card) });
   });
+}
+
+export function localSetVocabulary(deckId: string, vocabulary: boolean): void {
+  if (deckId === BUILTIN_DECK_ID) throw new Error("Built-in decks stay as they are.");
+  const store = read();
+  const deck = store.decks.find((row) => row.id === deckId);
+  if (!deck) throw new Error("That deck is gone.");
+  deck.vocabulary = vocabulary;
+  write(store);
 }
 
 export function localDeleteDeck(deckId: string): void {

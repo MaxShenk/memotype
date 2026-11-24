@@ -12,6 +12,7 @@ function normalize(value: Partial<PracticePrefs> | undefined, fallback: Practice
     chunkSize: Number.isFinite(size) && size >= 1 ? Math.floor(size) : fallback.chunkSize,
     shuffle: typeof value?.shuffle === "boolean" ? value.shuffle : fallback.shuffle,
     startWithTerm: typeof value?.startWithTerm === "boolean" ? value.startWithTerm : fallback.startWithTerm,
+    sentences: typeof value?.sentences === "boolean" ? value.sentences : fallback.sentences,
   };
 }
 

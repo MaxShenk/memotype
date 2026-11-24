@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { localImportDeck, localListDecks, localLoadCards, localReplaceCards, localSaveDeck } from "./local";
+import { localImportDeck, localListDecks, localLoadCards, localReplaceCards, localSaveDeck, localSetVocabulary } from "./local";
 
 const store = new Map<string, string>();
 let sequence = 1;
@@ -50,5 +50,17 @@ describe("local decks", () => {
       { term: "Ivy", definition: "Vine", image: "", enabled: true },
     ]);
     expect(localLoadCards(created.id).map((card) => card.enabled)).toEqual([false, true]);
+  });
+
+  it("marks a deck as vocabulary and keeps that flag when the same name is imported", () => {
+    const created = localImportDeck("Words", [{ term: "Oak", definition: "A tree" }]);
+    expect(localListDecks().find((row) => row.id === created.id)?.vocabulary).toBe(false);
+    localSetVocabulary(created.id, true);
+    expect(localListDecks().find((row) => row.id === created.id)?.vocabulary).toBe(true);
+    localImportDeck("Words", [{ term: "Elm", definition: "A tree" }]);
+    expect(localListDecks().find((row) => row.id === created.id)?.vocabulary).toBe(true);
+    const fresh = localImportDeck("Rare words", [{ term: "Elm", definition: "A tree" }], true);
+    expect(localListDecks().find((row) => row.id === fresh.id)?.vocabulary).toBe(true);
+    expect(localListDecks().find((row) => row.builtin_key)?.vocabulary).toBe(false);
   });
 });

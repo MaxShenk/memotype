@@ -37,8 +37,11 @@ create table if not exists public.decks (
   user_id uuid default auth.uid() references auth.users (id) on delete cascade,
   name text not null,
   builtin_key text unique,
+  vocabulary boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+alter table public.decks add column if not exists vocabulary boolean not null default false;
 
 create table if not exists public.cards (
   id uuid primary key default gen_random_uuid(),
