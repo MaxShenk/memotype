@@ -11,7 +11,7 @@ interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
 }
 
-const MODEL = "@cf/meta/llama-3.2-1b-instruct";
+const MODEL = "@cf/ibm-granite/granite-4.0-h-micro";
 const WINDOW_MS = 60_000;
 const LIMIT = 45;
 const hits = new Map<string, number[]>();
