@@ -32,9 +32,13 @@ function limited(ip: string, now: number): boolean {
   return false;
 }
 
-function modelText(result: { response?: string } | string): string {
+function modelText(result: unknown): string {
   if (typeof result === "string") return result;
-  return result.response ?? "";
+  if (!result || typeof result !== "object") return "";
+  const record = result as { response?: unknown; result?: { response?: unknown } };
+  if (typeof record.response === "string") return record.response;
+  if (typeof record.result?.response === "string") return record.result.response;
+  return "";
 }
 
 export default {
@@ -70,10 +74,11 @@ async function grade(request: Request, env: Env): Promise<Response> {
         { role: "system", content: "You only answer yes or no." },
         { role: "user", content: buildSentencePrompt(word, gloss, sentence) },
       ],
-      max_tokens: 40,
+      max_tokens: 180,
       temperature: 0,
     });
     const verdict = parseSentenceVerdict(modelText(result));
+    if (verdict.ok === null) return Response.json({ error: "unavailable" }, { status: 503 });
     if (verdict.ok) return Response.json({ ok: true });
     return Response.json({ ok: false, reason: verdict.reason });
   } catch {

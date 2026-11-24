@@ -108,23 +108,40 @@ export function sentenceGate(word: string, gloss: string, sentence: string): Sen
 export function buildSentencePrompt(word: string, gloss: string, sentence: string): string {
   return [
     "You grade whether a learner used an English word in the sense of a short glossary entry.",
+    "The first word of your reply must be yes or no. Do not think out loud first.",
     "",
     `Word: ${word.trim()}`,
     `Glossary: ${gloss.trim()}`,
     "",
     `Sentence: ${sentence.trim()}`,
     "",
-    "Reply with yes if the sentence uses the word in that sense. Awkward grammar is fine.",
-    "Reply with no if the sense is different, the sentence only defines the word, or the word is not really used.",
-    "On no, add a colon and one short reason.",
-    "Answer with yes or no only.",
+    "yes means the sentence uses the word in that sense. Awkward grammar is fine. A normal dictionary example is yes.",
+    "no means a different sense, or the sentence only defines the word.",
+    "If you answer no, add a colon and a reason of at most 12 words.",
   ].join("\n");
 }
 
-export function parseSentenceVerdict(text: string): { ok: boolean; reason: string } {
-  const cleaned = text.trim().toLowerCase();
-  if (cleaned.startsWith("yes")) return { ok: true, reason: "" };
-  const reason = text.replace(/^\s*no\b[:\-\s]*/i, "").trim().slice(0, 160);
+function verdictBody(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, " ")
+    .replace(/<\|think\|>[\s\S]*?(?:<\|\/think\|>|$)/gi, " ")
+    .replace(/```/g, " ")
+    .trim();
+}
+
+export function parseSentenceVerdict(text: string): { ok: boolean | null; reason: string } {
+  const body = verdictBody(text);
+  const line = body.split(/\r?\n/).map((part) => part.trim()).find(Boolean) ?? "";
+  const lead = line.replace(/^\**\s*/, "").replace(/^(answer|verdict|response|result)\s*:\s*/i, "");
+  if (/^yes\b/i.test(lead)) return { ok: true, reason: "" };
+  if (/^no\b/i.test(lead)) {
+    const reason = lead.replace(/^no\b[:\-\s]*/i, "").trim().slice(0, 160);
+    return { ok: false, reason: reason || "That does not use the word in this sense." };
+  }
+  const match = body.match(/\b(yes|no)\b/i);
+  if (!match || match.index == null) return { ok: null, reason: "" };
+  if (match[1].toLowerCase() === "yes") return { ok: true, reason: "" };
+  const reason = body.slice(match.index + match[0].length).replace(/^[:\-\s]+/, "").trim().slice(0, 160);
   return { ok: false, reason: reason || "That does not use the word in this sense." };
 }
 

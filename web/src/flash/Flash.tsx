@@ -1044,7 +1044,6 @@ function Quiz({ deck, cards, progress, launch, onProgress, onBack }: { deck: Dec
           )}
           <div>{sentences ? (session.currentCard().term || "This card has no word.") : (session.promptText() || "Picture")}</div>
         </div>
-        {sentences && session.currentCard().definition && <p>{session.currentCard().definition}</p>}
       </article>
       <div className="card answer">
         {offlineSentences ? (
